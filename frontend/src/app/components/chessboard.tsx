@@ -1,7 +1,7 @@
 "use client";
 
 import {
-    PieceDropHandlerArgs,
+    type PieceDropHandlerArgs,
     Chessboard as ReactChessboard,
 } from "react-chessboard";
 import { useChessStore } from "../contexts/chess.context";

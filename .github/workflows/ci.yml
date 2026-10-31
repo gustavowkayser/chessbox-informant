@@ -1,0 +1,53 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+jobs:
+    backend:
+        runs-on: ubuntu-latest
+        services:
+            postgres:
+                image: postgres:18
+                env:
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: postgres
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U postgres -d postgres"
+                    --health-interval 2s
+                    --health-timeout 5s
+                    --health-retries 15
+        env:
+            CHESSINFO_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+            CHESSINFO_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        defaults:
+            run:
+                working-directory: backend
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-go@v6
+              with:
+                  go-version-file: backend/go.mod
+                  cache-dependency-path: backend/go.sum
+            - run: go vet ./...
+            - run: go test ./...
+            - run: go run . migrate
+
+    frontend:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: frontend
+        steps:
+            - uses: actions/checkout@v5
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version-file: frontend/package.json
+            - run: bun install --frozen-lockfile
+            - run: bun run lint
+            - run: bun run build

@@ -1,4 +1,4 @@
-import { Chess, type Square } from "chess.js";
+import { Chess } from "chess.js";
 import { create } from "zustand";
 
 type ChessStore = {
@@ -9,7 +9,7 @@ type ChessStore = {
     revision: number;
     refresh: () => void;
     getGame: (source: Chess) => Chess;
-    
+
     makeMove: (from: string, to: string, promotion?: string) => boolean;
     undoMove: () => void;
     resetGame: () => void;
