@@ -1,4 +1,4 @@
-.PHONY: db-up migrate build test lint dev
+.PHONY: db-up migrate build test lint dev fixtures
 
 export CHESSINFO_TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:5433/postgres
 
@@ -24,3 +24,6 @@ lint:
 
 dev:
 	cd frontend && bun dev
+
+fixtures:
+	cd backend && go run ./tests/fixturegen

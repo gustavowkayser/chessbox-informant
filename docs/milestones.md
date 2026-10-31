@@ -46,7 +46,7 @@ Goal: a book becomes ordered chunks, each with its chapter and page, stored in t
 - [ ] Chunker that keeps chapter and page
 - [ ] Book identity by SHA-256; `chessinfo index <file> --dry-run`
 - [ ] `chessinfo books list | show | remove`
-- [ ] First fixture: `book.md`, with `book.epub` and `book.pdf` generated from it
+- [x] First fixture: `book.md`, with `book.epub` and `book.pdf` generated from it
 
 **Done when:** both fixture formats produce the same chunk sequence (page numbers aside), and indexing the same file twice does nothing.
 

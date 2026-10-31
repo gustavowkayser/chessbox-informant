@@ -3,6 +3,7 @@ module chessbox-informant
 go 1.26.2
 
 require (
+	codeberg.org/go-pdf/fpdf v0.12.0
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/spf13/cobra v1.10.2

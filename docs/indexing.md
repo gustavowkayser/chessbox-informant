@@ -201,7 +201,7 @@ Models are configurable: any Ollama model with JSON-schema structured output wor
 Each fixture lives in `backend/tests/assets/<name>/`:
 
 - `book.md` is written for this project: original commentary on public-domain games (game scores are facts, not copyrighted text).
-- `book.epub` and `book.pdf` are generated from `book.md`.
+- `book.epub` and `book.pdf` are generated from `book.md` with `make fixtures`. A test fails when they are out of date.
 - `expected.json` is the ground truth: for each expected quote, a distinctive substring and the position keys it must be linked to.
 
 `chessinfo eval <fixture>` indexes the fixture into a scratch database and reports:

@@ -37,7 +37,7 @@ cd frontend && bun run lint              # biome check
 cd frontend && bun run format            # biome format --write
 ```
 
-The Makefile wraps these: `make db-up migrate test`, `make build` (`backend/bin/chessinfo`), `make lint`, `make dev`. `make test` runs the database tests against `CHESSINFO_TEST_DATABASE_URL` (default: the local compose database); each test creates and drops its own database.
+The Makefile wraps these: `make db-up migrate test`, `make build` (`backend/bin/chessinfo`), `make lint`, `make dev`, `make fixtures` (regenerates the fixture ePUB and PDF from `book.md`). `make test` runs the database tests against `CHESSINFO_TEST_DATABASE_URL` (default: the local compose database); each test creates and drops its own database.
 
 ## Conventions
 
