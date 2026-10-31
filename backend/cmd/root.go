@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"chessbox-informant/internal/config"
+
 	"github.com/spf13/cobra"
 )
 
@@ -12,12 +14,14 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "cbox [command] [options]",
+	Use:     "chessinfo [command] [options]",
 	Short:   "A chess book position indexer",
 	Long:    "Tool for indexing chess positions by analysing chess books utilizing local LLMs models",
 	Version: "1.0.0",
-	Args:    cobra.NoArgs,
-	Run:     run,
+	// Runtime errors are not usage errors; printing the usage would bury them.
+	SilenceUsage: true,
+	Args:         cobra.NoArgs,
+	Run:          run,
 }
 
 func Execute() {
@@ -28,13 +32,14 @@ func Execute() {
 }
 
 func init() {
+	config.RegisterFlags(rootCmd.PersistentFlags())
 	rootCmd.Flags().BoolP("help", "h", false, "Show help for the command")
 	rootCmd.Flags().BoolVarP(&version, "version", "v", false, "Show version information")
 }
 
 func run(cmd *cobra.Command, args []string) {
 	if version {
-		fmt.Println("cbox version ", cmd.Version)
+		fmt.Println("chessinfo version", cmd.Version)
 		return
 	}
 }

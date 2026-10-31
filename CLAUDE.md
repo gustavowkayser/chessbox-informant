@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-ChessBox Informant is an open-source tool that indexes chess positions to quotes from chess books the user owns (PDF/ePUB). The `cbox` CLI indexes a book with local models and stores quotes keyed by position in PostgreSQL; the web app shows the quotes for the position on the board.
+ChessBox Informant is an open-source tool that indexes chess positions to quotes from chess books the user owns (PDF/ePUB). The `chessinfo` CLI indexes a book with local models and stores quotes keyed by position in PostgreSQL; the web app shows the quotes for the position on the board.
 
 Read before working: [README.md](README.md), [docs/architecture.md](docs/architecture.md), [docs/indexing.md](docs/indexing.md), [docs/milestones.md](docs/milestones.md).
 
@@ -12,7 +12,7 @@ Read before working: [README.md](README.md), [docs/architecture.md](docs/archite
 ## Repository map
 
 ```
-backend/                 Go module `chessbox-informant`, binary `cbox` (cobra)
+backend/                 Go module `chessbox-informant`, binary `chessinfo` (cobra)
   cmd/                   CLI commands
   internal/              application packages (layout in docs/architecture.md)
   database/migrations/   SQL migrations
@@ -37,7 +37,7 @@ cd frontend && bun run lint              # biome check
 cd frontend && bun run format            # biome format --write
 ```
 
-Makefile targets are planned in milestone M0; the Makefile is empty until then.
+The Makefile wraps these: `make db-up migrate test`, `make build` (`backend/bin/chessinfo`), `make lint`, `make dev`. `make test` runs the database tests against `CHESSINFO_TEST_DATABASE_URL` (default: the local compose database); each test creates and drops its own database.
 
 ## Conventions
 

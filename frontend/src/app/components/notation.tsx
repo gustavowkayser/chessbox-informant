@@ -9,9 +9,9 @@ export function Notation() {
 
     const moves = history.map((move, index) => {
         return {
-            number: ((index + 1) / 2) + 0.5,
+            number: (index + 1) / 2 + 0.5,
             san: move.san,
-        }
+        };
     });
 
     return (
@@ -22,12 +22,19 @@ export function Notation() {
                         key={move.san + move.number}
                         className="text-sm flex hover:bg-gray-700 hover:cursor-pointer p-2 rounded-lg"
                     >
-                        {move.number == Math.floor(move.number) && <span>{move.number}.</span>} <span>{move.san}</span>
+                        {move.number === Math.floor(move.number) && (
+                            <span>{move.number}.</span>
+                        )}{" "}
+                        <span>{move.san}</span>
                     </div>
                 ))}
             </div>
             <div className="mt-5 shrink-0">
-                <button className="w-full h-10 bg-blue-950 rounded-lg cursor-pointer" onClick={undo}>
+                <button
+                    type="button"
+                    className="w-full h-10 bg-blue-950 rounded-lg cursor-pointer"
+                    onClick={undo}
+                >
                     <span>Undo</span>
                 </button>
             </div>
