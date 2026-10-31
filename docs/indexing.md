@@ -1,6 +1,6 @@
 # Indexing pipeline
 
-`cbox index <file>` turns a book into rows in `quotes` and `quote_positions` (see the [data model](architecture.md#data-model)). Each stage saves its output per chunk, so an interrupted run resumes where it stopped. A book is identified by the SHA-256 of its file, so re-indexing an unchanged book does nothing.
+`chessinfo index <file>` turns a book into rows in `quotes` and `quote_positions` (see the [data model](architecture.md#data-model)). Each stage saves its output per chunk, so an interrupted run resumes where it stopped. A book is identified by the SHA-256 of its file, so re-indexing an unchanged book does nothing.
 
 ```mermaid
 flowchart TD
@@ -102,7 +102,7 @@ Routing, where τ is a confidence threshold:
 - **Context window.** The English checkpoint has a 512-token window, so state is capped at about 350 tokens. Longer chunks are triaged in windows, and the most expensive outcome wins (annotation > game score > discussion > other). For books not in English, `laya-multilingual` is used (1,024 tokens by default).
 - **Thresholds.** Laya's `confidence` measures how concentrated its answer is, not whether it is correct, and the model is over-confident as shipped. τ starts conservatively at 0.8 and is tuned against labeled fixtures in M6.
 - **Options.** Answer options share a small token budget, so keep them few and short.
-- **Opting out.** Without triage (`--no-triage`, or when Python is unavailable), every chunk that contains move tokens goes to the LLM. Triage is an optimization; the pipeline must work without it.
+- **Opting out.** Without triage (`--no-triage`, or when Laya is not pulled), every chunk that contains move tokens goes to the LLM. Triage is an optimization; the pipeline must work without it.
 
 **Where Laya is not used:** parsing moves (it cannot generate output), detecting the notation convention (replay is more reliable), and anything that needs more than ~350 tokens of context at once.
 
@@ -144,7 +144,7 @@ Output is rejected, and the chunk retried, if any of these checks fail:
 - Replay the mainline from the running position. Each variation branches from the position before the move it replaces.
 - Compare the move numbers printed in the tokens with the computed ply. A mismatch means the structure is wrong.
 - When a move is illegal, re-prompt with the exact error, for example: ``m7 `24.Qg3+` is illegal after 23.Nf5 gxf5``. After 2 failed retries, the chunk is marked `failed` with the reason, and the pipeline moves on. Later chunks of the same game continue from the last good position until the move numbers stop lining up or a new game starts.
-- `cbox books show <id>` lists the failed chunks.
+- `chessinfo books show <id>` lists the failed chunks.
 
 ## 6. Link & store
 
@@ -187,10 +187,10 @@ A main variation often continues into later chunks. Each game's open quote is th
 |---|---|---|---|---|
 | Parse | `qwen3.5:9b` | Ollama | 6.6 GB download (Q4) + KV cache | Cap `num_ctx` at 8192. Confirm with `ollama ps` that it runs 100% on the GPU. |
 | Parse, low memory | `qwen3.5:4b` | Ollama | 3.4 GB download | Use when the 9B spills into system RAM. |
-| Triage | `laya` / `laya-multilingual` | `laya-serve` (Python) | 421M / 322M params, ≈1 GB in fp16 (estimate) | Published figures: ~33 ms per question on a T4 GPU, ~0.2–0.5 s on CPU. |
+| Triage | `laya` / `laya-multilingual` | Ollama (0.40+) | 421M / 322M params, ≈1 GB in fp16 (estimate) | Published figures: ~33 ms per question on a T4 GPU, ~0.2–0.5 s on CPU. |
 | Diagrams (M7) | `qwen3.5:9b` (vision input) | Ollama | Same as parse | |
 
-**Staged execution keeps VRAM free.** Triage runs over the whole book first, with only Laya loaded. In managed mode (`CBOX_SYSTEMONE_URL` empty), cbox starts `laya-serve` for the triage stage and stops it before the parse stage loads the LLM. The two models never share the GPU.
+**Staged execution keeps VRAM free.** Triage runs over the whole book first, with only Laya loaded. The last triage request sends `keep_alive: 0`, so Ollama unloads Laya before the parse stage loads the LLM. The two models never share the GPU.
 
 **`num_ctx` 8192 is enough.** A chunk (≤ ~1,500 tokens) plus the running context, instructions, schema and output fits with room to spare. A larger window costs KV-cache memory that an 8 GB card does not have.
 
@@ -204,7 +204,7 @@ Each fixture lives in `backend/tests/assets/<name>/`:
 - `book.epub` and `book.pdf` are generated from `book.md`.
 - `expected.json` is the ground truth: for each expected quote, a distinctive substring and the position keys it must be linked to.
 
-`cbox eval <fixture>` indexes the fixture into a scratch database and reports:
+`chessinfo eval <fixture>` indexes the fixture into a scratch database and reports:
 
 - position-link precision and recall
 - LLM calls per chunk, with and without triage

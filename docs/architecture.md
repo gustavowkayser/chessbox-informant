@@ -4,14 +4,13 @@
 
 ChessBox Informant has two halves that share one PostgreSQL database:
 
-- **`cbox`** (Go CLI, `backend/`) **writes**. It reads a PDF or ePUB, runs the [indexing pipeline](indexing.md) with local models, and stores quotes keyed by chess position.
+- **`chessinfo`** (Go CLI, `backend/`) **writes**. It reads a PDF or ePUB, runs the [indexing pipeline](indexing.md) with local models, and stores quotes keyed by chess position.
 - **The web app** (Next.js, `frontend/`) **reads**. It shows an interactive board, and after every position change it requests the quotes linked to that position from `/api/v1/quotes`.
 
 ```mermaid
 flowchart LR
-    book[PDF / ePUB] --> cli[cbox index]
-    cli <--> laya[Laya<br/>System One]
-    cli <--> ollama[Ollama<br/>generative LLM]
+    book[PDF / ePUB] --> cli[chessinfo index]
+    cli <--> ollama[Ollama<br/>generative LLM + Laya]
     cli --> db[(PostgreSQL)]
     db --> api[Next.js route<br/>/api/v1/quotes]
     api --> ui[Board + quotes panel]
@@ -21,15 +20,15 @@ All models run locally, and no book content is ever sent over the network.
 
 ## Components
 
-### `cbox` CLI
+### `chessinfo` CLI
 
 | Command | Purpose |
 |---|---|
-| `cbox index <file>` | Index a book. Resumable; re-indexing an unchanged file does nothing. |
-| `cbox books list` / `show <id>` / `remove <id>` | Manage indexed books and inspect failures. |
-| `cbox migrate` | Apply database migrations. |
-| `cbox doctor` | Check Postgres, Ollama, pulled models, the Laya endpoint and VRAM. |
-| `cbox eval <fixture>` | Measure indexing accuracy against a fixture's ground truth. |
+| `chessinfo index <file>` | Index a book. Resumable; re-indexing an unchanged file does nothing. |
+| `chessinfo books list` / `show <id>` / `remove <id>` | Manage indexed books and inspect failures. |
+| `chessinfo migrate` | Apply database migrations. |
+| `chessinfo doctor` | Check Postgres, Ollama (version, pulled models, `/v1/systemone`) and VRAM. |
+| `chessinfo eval <fixture>` | Measure indexing accuracy against a fixture's ground truth. |
 
 Planned package layout:
 
@@ -42,7 +41,7 @@ backend/
     notation/          move tokenizer, notation conventions (figurine, localized letters)
     chess/             replay, variation tree, position keys
     llm/               generative provider interface + Ollama implementation
-    systemone/         System One client (Laya or Ollama)
+    systemone/         System One client (Ollama `/v1/systemone`)
     pipeline/          stages, per-chunk state, resume
     store/             PostgreSQL repositories
   database/migrations/
@@ -257,17 +256,16 @@ create index quote_positions_position_key on quote_positions (position_key);
 
 ## Configuration
 
-| Variable | Default | Used by |
-|---|---|---|
-| `CBOX_DATABASE_URL` | `postgres://postgres:postgres@localhost:5433/postgres` | cbox |
-| `DATABASE_URL` | same as above | web app (`frontend/.env.local`) |
-| `CBOX_OLLAMA_URL` | `http://localhost:11434` | cbox |
-| `CBOX_LLM_MODEL` | `qwen3.5:9b` | cbox |
-| `CBOX_LLM_NUM_CTX` | `8192` | cbox |
-| `CBOX_SYSTEMONE_URL` | empty: cbox starts and stops Laya itself | cbox |
-| `CBOX_SYSTEMONE_MODEL` | `laya` | cbox |
+| Variable | Flag | Default | Used by |
+|---|---|---|---|
+| `CHESSINFO_DATABASE_URL` | `--database-url` | `postgres://postgres:postgres@localhost:5433/postgres` | chessinfo |
+| `DATABASE_URL` | | same as above | web app (`frontend/.env.local`) |
+| `CHESSINFO_OLLAMA_URL` | `--ollama-url` | `http://localhost:11434` | chessinfo |
+| `CHESSINFO_LLM_MODEL` | `--model` | `qwen3.5:9b` | chessinfo |
+| `CHESSINFO_LLM_NUM_CTX` | `--num-ctx` | `8192` | chessinfo |
+| `CHESSINFO_SYSTEMONE_MODEL` | `--systemone-model` | `laya` | chessinfo |
 
-Each variable also has a matching CLI flag. Flags take precedence over environment variables.
+Flags override environment variables, which override the defaults (`internal/config`). All flags are global, on the root command.
 
 ## Technical decisions
 
@@ -275,9 +273,9 @@ All decisions below are **approved**. D5 is approved for now and will be revisit
 
 | # | Topic | Decision | Reason / alternative |
 |---|---|---|---|
-| D1 | Serving quotes to the UI | The Next.js route handler reads PostgreSQL directly, using a read-only role. | The route stub already exists, and there is no second server to run. Alternative: a `cbox serve` HTTP API. |
+| D1 | Serving quotes to the UI | The Next.js route handler reads PostgreSQL directly, using a read-only role. | The route stub already exists, and there is no second server to run. Alternative: a `chessinfo serve` HTTP API. |
 | D2 | Generative provider | Ollama `/api/chat` with a JSON-schema `format`, behind an `llm.Provider` interface. | Easy local setup on every OS, with structured output. An OpenAI-compatible provider (LM Studio, llama.cpp) can be added later. |
-| D3 | System One provider | Laya served by its Python package (`laya-serve`, `POST /v1/systemone`). The same client can target Ollama's `/v1/systemone`. | Laya is not in Ollama's library as of Oct 2026. Both servers speak the same wire format. |
+| D3 | System One provider | Laya served by Ollama (`ollama pull laya`, `POST /v1/systemone`, Ollama 0.40+), at `CHESSINFO_OLLAMA_URL`. | One runtime for both models, and no Python dependency. Laya's own Python server (`laya-serve`) speaks the same wire format, but is no longer needed. |
 | D4 | Default LLM | `qwen3.5:9b`, with `qwen3.5:4b` as the low-memory fallback. | See the [VRAM budget](indexing.md#models-and-the-8-gb-vram-budget). |
 | D5 | PDF text | Poppler `pdftotext -layout`, behind a `book.Extractor` interface. | Robust, and needs no cgo on Windows. MuPDF (`go-fitz`) is the alternative if image diagrams (M7) need it. |
 | D6 | ePUB text | Pure Go: `archive/zip` + `golang.org/x/net/html`. | No external dependency. |
