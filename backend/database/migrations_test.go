@@ -3,14 +3,11 @@ package database_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"net/url"
-	"os"
 	"slices"
 	"testing"
-	"time"
 
 	"chessbox-informant/database"
+	"chessbox-informant/internal/testdb"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -19,32 +16,7 @@ var schemaTables = []string{"books", "chunks", "games", "quote_positions", "quot
 
 func newTestDatabase(t *testing.T) *sql.DB {
 	t.Helper()
-	adminURL := os.Getenv("CHESSINFO_TEST_DATABASE_URL")
-	if adminURL == "" {
-		t.Skip("CHESSINFO_TEST_DATABASE_URL is not set")
-	}
-	admin, err := sql.Open("pgx", adminURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { admin.Close() })
-
-	name := fmt.Sprintf("chessinfo_test_%d", time.Now().UnixNano())
-	if _, err := admin.Exec("create database " + name); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if _, err := admin.Exec("drop database " + name + " with (force)"); err != nil {
-			t.Error(err)
-		}
-	})
-
-	u, err := url.Parse(adminURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.Path = "/" + name
-	db, err := sql.Open("pgx", u.String())
+	db, err := sql.Open("pgx", testdb.Create(t))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -42,6 +42,7 @@ func TestLoad(t *testing.T) {
 				"CHESSINFO_LLM_MODEL":       "qwen3.5:4b",
 				"CHESSINFO_LLM_NUM_CTX":     "4096",
 				"CHESSINFO_SYSTEMONE_MODEL": "laya-multilingual",
+				"CHESSINFO_POPPLER_DIR":     "/opt/poppler/bin",
 			},
 			want: func(c *config.Config) {
 				c.DatabaseURL = "postgres://env"
@@ -49,15 +50,17 @@ func TestLoad(t *testing.T) {
 				c.LLMModel = "qwen3.5:4b"
 				c.LLMNumCtx = 4096
 				c.SystemOneModel = "laya-multilingual"
+				c.PopplerDir = "/opt/poppler/bin"
 			},
 		},
 		{
 			name: "flag overrides env",
 			env:  map[string]string{"CHESSINFO_DATABASE_URL": "postgres://env", "CHESSINFO_LLM_NUM_CTX": "4096"},
-			args: []string{"--database-url", "postgres://flag", "--num-ctx", "2048"},
+			args: []string{"--database-url", "postgres://flag", "--num-ctx", "2048", "--poppler-dir", "C:/poppler/bin"},
 			want: func(c *config.Config) {
 				c.DatabaseURL = "postgres://flag"
 				c.LLMNumCtx = 2048
+				c.PopplerDir = "C:/poppler/bin"
 			},
 		},
 		{

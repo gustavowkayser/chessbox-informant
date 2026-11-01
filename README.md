@@ -30,6 +30,7 @@ flowchart LR
 | Bun 1.4+ | Web app |
 | Docker | PostgreSQL |
 | Ollama 0.40+ | Generative LLM and Laya |
+| Poppler | PDF text extraction (`pdftotext`, `pdftohtml`). Windows: `winget install oschwartz10612.Poppler`; macOS: `brew install poppler`; Debian/Ubuntu: `apt install poppler-utils`. The xpdf `pdftotext` that ships with Git for Windows does not work; use `--poppler-dir` if it comes first on your PATH. |
 | GPU | An NVIDIA card with 8 GB VRAM is the target. CPU works, but slowly. |
 
 ## Development
@@ -38,6 +39,7 @@ flowchart LR
 docker compose up -d postgres            # PostgreSQL on localhost:5433
 cd backend && go run . --version         # CLI
 cd backend && go run . migrate           # apply database migrations
+cd backend && go run . index <file> --dry-run   # show how a book is extracted and chunked
 cd backend && go test ./...              # backend tests; set CHESSINFO_TEST_DATABASE_URL to include DB tests
 cd frontend && bun install && bun dev    # http://localhost:3000
 ```

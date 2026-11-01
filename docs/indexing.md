@@ -18,13 +18,13 @@ The guiding rule: **models classify and link, deterministic code handles chess.*
 
 ## 1. Extract
 
-- **ePUB:** read the spine in order and convert the XHTML to text blocks. Chapter titles come from the navigation document. Title, author and language come from the OPF metadata.
-- **PDF:** take the text layer page by page (`pdftotext -layout`). Remove running headers and footers (lines repeated across pages), join hyphenated words, and fix ligatures. A PDF without a text layer is rejected with a clear message; OCR is out of scope until M7.
+- **ePUB:** read the spine in order and convert the XHTML to text blocks. A block's chapter is the deepest entry of the navigation document (or the EPUB 2 NCX) reached so far. Printed page numbers come from page-break markers when the book has them. Title, author and language come from the OPF metadata. DRM-protected books are rejected.
+- **PDF:** take the text layer with line positions (`pdftotext -bbox-layout`), in Poppler's reading order, so two-column pages are read column by column. Remove running headers and footers (top and bottom rows repeated across pages, or equal to the book or a chapter title), and read printed page numbers from them. Start a paragraph at a first-line indent or a wider vertical gap; a paragraph continues across columns and pages. Join hyphenated words and fix ligatures. Chapters come from the PDF outline (`pdftohtml -xml`); without one, chapters are unknown and a warning is printed. A PDF without a text layer is rejected with a clear message; OCR is out of scope until M7.
 - `--title`, `--author` and `--language` override the detected metadata.
 
 ## 2. Chunk & tokenize
 
-**Chunking.** Split the text into paragraph-sized chunks that never cross a chapter boundary, and keep the chapter and page with each chunk.
+**Chunking.** Split the text into paragraph-sized chunks that never cross a chapter boundary, and keep the chapter and page with each chunk. Blocks under 200 characters (a move set apart on its own line, a caption) and headings are merged with the blocks that follow them, until the group reaches 200 characters. A heading equal to the chapter title is dropped. A chunk longer than 6,000 characters (about 1,500 tokens) is split between sentences.
 
 **Notation convention.** Detect it once per book, from these candidates:
 
@@ -201,7 +201,7 @@ Models are configurable: any Ollama model with JSON-schema structured output wor
 Each fixture lives in `backend/tests/assets/<name>/`:
 
 - `book.md` is written for this project: original commentary on public-domain games (game scores are facts, not copyrighted text).
-- `book.epub` and `book.pdf` are generated from `book.md`.
+- `book.epub` and `book.pdf` are generated from `book.md` with `make fixtures`. A test fails when they are out of date.
 - `expected.json` is the ground truth: for each expected quote, a distinctive substring and the position keys it must be linked to.
 
 `chessinfo eval <fixture>` indexes the fixture into a scratch database and reports:

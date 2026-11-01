@@ -41,12 +41,12 @@ Goal: anyone can clone, run and test the repository.
 
 Goal: a book becomes ordered chunks, each with its chapter and page, stored in the database.
 
-- [ ] ePUB extractor: spine order, chapters, metadata
-- [ ] PDF extractor: text layer, header/footer removal, de-hyphenation; scanned PDFs are rejected
-- [ ] Chunker that keeps chapter and page
-- [ ] Book identity by SHA-256; `chessinfo index <file> --dry-run`
-- [ ] `chessinfo books list | show | remove`
-- [ ] First fixture: `book.md`, with `book.epub` and `book.pdf` generated from it
+- [x] ePUB extractor: spine order, chapters, metadata
+- [x] PDF extractor: text layer, header/footer removal, de-hyphenation; scanned PDFs are rejected
+- [x] Chunker that keeps chapter and page
+- [x] Book identity by SHA-256; `chessinfo index <file> --dry-run`
+- [x] `chessinfo books list | show | remove`
+- [x] First fixture: `book.md`, with `book.epub` and `book.pdf` generated from it
 
 **Done when:** both fixture formats produce the same chunk sequence (page numbers aside), and indexing the same file twice does nothing.
 
@@ -56,6 +56,7 @@ Goal: turn move text into verified positions without any model.
 
 - [ ] Move tokenizer: SAN, move numbers, `...`, castling, promotions, annotation glyphs (`! ? !? ?! !! ??`)
 - [ ] Notation conventions (English, Portuguese, Spanish, German, French, figurine), detected by replay
+- [ ] Chess fonts without Unicode figurines: some PDFs extract piece glyphs as U+FFFD or stray characters such as `@` or `"1`. Map them per font (font names from `pdftohtml -xml`) to piece letters, and confirm the mapping by replay
 - [ ] Replay with a variation tree
 - [ ] Position key in Go, plus the shared fixture `backend/tests/assets/position_keys.json`
 - [ ] Deterministic parser for bare game scores (the triage fast path)
