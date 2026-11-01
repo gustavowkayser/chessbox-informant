@@ -206,6 +206,20 @@ func TestEPUBExtractorFontObfuscationIsAllowed(t *testing.T) {
 	})
 }
 
+// Some generators, such as the one behind Internet Archive's ePUBs, list a
+// cover in the spine without a manifest entry for it.
+func TestEPUBExtractorSkipsSpineItemsMissingFromManifest(t *testing.T) {
+	doc := readTestEPUB(t, map[string]string{
+		"OPS/package.opf": strings.Replace(minimalOPF, `<itemref idref="c1"/>`, `<itemref idref="cover"/><itemref idref="c1"/>`, 1),
+		"OPS/toc.ncx":     minimalNCX,
+		"OPS/c1.xhtml":    xhtml(`<p>Text</p>`),
+	})
+	assertBlocks(t, doc.Blocks, []Block{{Chapter: "One", Text: "Text"}})
+	if len(doc.Warnings) != 1 || !strings.Contains(doc.Warnings[0], `"cover"`) {
+		t.Errorf("warnings = %q, want one about the cover", doc.Warnings)
+	}
+}
+
 func TestEPUBExtractorErrors(t *testing.T) {
 	cases := map[string]struct {
 		files map[string]string
