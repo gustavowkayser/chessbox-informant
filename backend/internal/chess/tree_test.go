@@ -75,6 +75,12 @@ func TestReplayMoveNumbers(t *testing.T) {
 	if black.MoveNumber != 37 || black.Side != chess.Black || white.MoveNumber != 38 || white.Side != chess.White {
 		t.Errorf("moves = (%d, %v), (%d, %v), want (37, Black), (38, White)", black.MoveNumber, black.Side, white.MoveNumber, white.Side)
 	}
+	if n, side := root.NextMove(); n != 37 || side != chess.Black {
+		t.Errorf("root next move = (%d, %v), want (37, Black)", n, side)
+	}
+	if n, side := end.NextMove(); n != 38 || side != chess.Black {
+		t.Errorf("next move = (%d, %v), want (38, Black)", n, side)
+	}
 	if black.Ref != "m1" || white.Ref != "m2" {
 		t.Errorf("refs = %q, %q, want m1, m2", black.Ref, white.Ref)
 	}

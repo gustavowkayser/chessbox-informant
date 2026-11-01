@@ -41,6 +41,11 @@ func NewTree(fen string) (*Node, error) {
 
 func (n *Node) FEN() string { return n.position.String() }
 
+// NextMove returns the move number and side of the move due in this position.
+func (n *Node) NextMove() (int, Color) {
+	return (n.position.Ply() + 1) / 2, colorOf(n.position.Turn())
+}
+
 func (n *Node) Key() string { return PositionKey(n.FEN()) }
 
 // Play adds the move that spec describes as a child of n. A move already
@@ -62,14 +67,11 @@ func (n *Node) Play(ref string, spec MoveSpec) (*Node, error) {
 	if i := slices.IndexFunc(n.Children, func(c *Node) bool { return c.SAN == san }); i >= 0 {
 		return n.Children[i], nil
 	}
-	side := White
-	if n.position.Turn() == lib.Black {
-		side = Black
-	}
+	number, side := n.NextMove()
 	child := &Node{
 		Ref:        ref,
 		SAN:        san,
-		MoveNumber: (n.position.Ply() + 1) / 2,
+		MoveNumber: number,
 		Side:       side,
 		Parent:     n,
 		position:   n.position.Update(&move),
@@ -102,4 +104,11 @@ func (n *Node) Line() string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+func colorOf(c lib.Color) Color {
+	if c == lib.Black {
+		return Black
+	}
+	return White
 }

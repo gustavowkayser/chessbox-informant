@@ -54,16 +54,17 @@ Goal: a book becomes ordered chunks, each with its chapter and page, stored in t
 
 ## M2: Chess notation engine (deterministic)
 
-Goal: turn move text into verified positions without any model.
+Goal: turn move text into verified positions without any model, including OCR-scanned books, which are most of the chess books available online.
 
 - [x] Move tokenizer: SAN, move numbers, `...`, black moves without a number (`23.Nf5 b4`), castling, promotions, annotation glyphs (`! ? !? ?! !! ??`)
 - [x] Position key in Go, plus the shared fixture `backend/tests/assets/position_keys.json`
 - [x] Replay with a variation tree, including moves whose piece could not be read
-- [ ] Notation conventions (English, Portuguese, Spanish, German, French, figurine), detected by replay
-- [ ] Chess fonts without Unicode figurines: some PDFs extract piece glyphs as U+FFFD or stray characters such as `@` or `"1`. Map them per font (font names from `pdftohtml -xml`) to piece letters, and confirm the mapping by replay
+- [x] Tests against the books in `backend/tests/assets/private/`, skipped when there are none: token counts, the share of numbered moves that replay, and the games replayed from move 1 to the end. They report numbers only, never book text
+- [ ] OCR-tolerant tokenizing: split move numbers and ellipses (`2 1 .`, `. . .`), digits read as letters in numbers and squares (`l` and `I` for 1, `S` for 5, `O` for 0), spaces inside a move (`e 5`), move numbers without a period (`24 axb4`), and unreadable piece glyphs before a square
+- [ ] Piece notation detected by replay: the conventions (English, Portuguese, Spanish, German, French, figurine) as candidates, plus a per-book mapping, learned by replay, for chess-font and OCR glyphs (`lll`, `:i!`, `'tt>`, U+FFFD)
 - [ ] Deterministic parser for bare game scores (the triage fast path)
 
-**Done when:** unit tests cover every convention, reference games replay to the expected FENs, and the fixture's bare game scores parse without any model.
+**Done when:** unit tests cover every convention, reference games replay to the expected FENs, the fixture's bare game scores parse without any model, and the private books, when present, reach the replay thresholds measured for them.
 
 ## M3: Local model providers
 
@@ -140,6 +141,9 @@ Goal: handle the content that plain text extraction misses.
 - [ ] Descriptive notation (`P-K4`), resolved against the legal moves
 - [ ] More conventions: Italian, Dutch, Russian
 - [ ] Scanned PDFs via OCR (stretch goal)
+- [ ] LLM correction of OCR errors in quote text, which never changes the moves
+- [ ] Chapters from running headers when a PDF has no outline
+- [ ] Drop diagram noise (coordinate letters, glyph grids) before chunking
 
 ## M7.5: Game identification
 

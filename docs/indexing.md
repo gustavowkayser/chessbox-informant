@@ -216,7 +216,7 @@ Each fixture lives in `backend/tests/assets/<name>/`:
 - triage accuracy against labels (M6)
 - time per stage
 
-Books you own are for manual testing only. Never commit them.
+Books you own go in `backend/tests/assets/private/`, which is git-ignored. Never commit them. `make test-books` extracts, tokenizes and replays each of them and reports numbers only: tokens found, the share of numbered moves that replay, and how far each game replays. Minimums per book are kept in `backend/tests/books/thresholds.json` and raised as the pipeline improves; a book without an entry is measured but never fails.
 
 ## References
 
