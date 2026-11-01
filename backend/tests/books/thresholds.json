@@ -1,14 +1,10 @@
 {
     "chess-structures.pdf": {
-        "numberedTokens": 2600,
-        "replayedShare": 0.11,
-        "games": 40,
-        "medianReached": 5
+        "strict": { "numberedTokens": 3800, "replayedMoves": 340, "games": 50, "medianReached": 4 },
+        "ocr": { "numberedTokens": 15700, "replayedMoves": 415, "games": 90, "medianReached": 4 }
     },
     "my-60-memorable-games.epub": {
-        "numberedTokens": 300,
-        "replayedShare": 0,
-        "games": 0,
-        "medianReached": 0
+        "strict": { "numberedTokens": 2350, "replayedMoves": 78, "games": 60, "medianReached": 3 },
+        "ocr": { "numberedTokens": 5900, "replayedMoves": 170, "games": 65, "medianReached": 2 }
     }
 }

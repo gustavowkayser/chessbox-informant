@@ -60,7 +60,7 @@ Goal: turn move text into verified positions without any model, including OCR-sc
 - [x] Position key in Go, plus the shared fixture `backend/tests/assets/position_keys.json`
 - [x] Replay with a variation tree, including moves whose piece could not be read
 - [x] Tests against the books in `backend/tests/assets/private/`, skipped when there are none: token counts, the share of numbered moves that replay, and the games replayed from move 1 to the end. They report numbers only, never book text
-- [ ] OCR-tolerant tokenizing: split move numbers and ellipses (`2 1 .`, `. . .`), digits read as letters in numbers and squares (`l` and `I` for 1, `S` for 5, `O` for 0), spaces inside a move (`e 5`), move numbers without a period (`24 axb4`), and unreadable piece glyphs before a square
+- [x] OCR-tolerant tokenizing and move matching: split move numbers and ellipses (`2 1 .`, `. . .`), digits read as letters in numbers and squares (`l` and `I` for 1, `S` for 5, `O` for 0), spaces inside a move (`e 5`), move numbers without a period (`24 axb4`), and unreadable piece glyphs before a square
 - [ ] Piece notation detected by replay: the conventions (English, Portuguese, Spanish, German, French, figurine) as candidates, plus a per-book mapping, learned by replay, for chess-font and OCR glyphs (`lll`, `:i!`, `'tt>`, U+FFFD)
 - [ ] Deterministic parser for bare game scores (the triage fast path)
 

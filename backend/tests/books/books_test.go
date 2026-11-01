@@ -6,6 +6,7 @@ package books
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,24 +24,39 @@ const (
 )
 
 type thresholds struct {
-	NumberedTokens int     `json:"numberedTokens"`
-	ReplayedShare  float64 `json:"replayedShare"`
-	Games          int     `json:"games"`
-	MedianReached  int     `json:"medianReached"`
+	NumberedTokens int `json:"numberedTokens"`
+	// ReplayedMoves is a count rather than a share, because the share drops
+	// whenever the tokenizer finds more moves.
+	ReplayedMoves int `json:"replayedMoves"`
+	Games         int `json:"games"`
+	MedianReached int `json:"medianReached"`
+}
+
+// modes are the tokenizer modes measured, by their name in thresholds.json.
+var modes = []struct {
+	name string
+	opts notation.Options
+}{
+	{"strict", notation.Options{}},
+	{"ocr", notation.Options{OCR: true}},
 }
 
 type report struct {
 	Chunks int
 	Tokens int
-	// PrintedNumbers estimates the move numbers in the text with a loose
-	// pattern, as a yardstick for the tokenizer.
+	// PrintedNumbers estimates the dotted move numbers in the text with a
+	// loose pattern, as a yardstick for the tokenizer.
 	PrintedNumbers int
 	NumberedTokens int
 	// GameMoves counts the numbered tokens that come after a game has
 	// started; ReplayedMoves counts those that replayed.
 	GameMoves     int
 	ReplayedMoves int
-	Games         int
+	// Ambiguous counts the numbered moves that fit more than one legal move,
+	// and Candidates the legal moves they fit, in total.
+	Ambiguous  int
+	Candidates int
+	Games      int
 	// Reached holds, per game, the move number at the end of its main line.
 	Reached []int
 }
@@ -74,7 +90,7 @@ func TestPrivateBooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var minimums map[string]thresholds
+	var minimums map[string]map[string]thresholds
 	if err := json.Unmarshal(data, &minimums); err != nil {
 		t.Fatal(err)
 	}
@@ -86,30 +102,46 @@ func TestPrivateBooks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			r := measure(book.ChunkBlocks(doc.Blocks))
-			t.Logf("chunks %d, tokens %d, numbered tokens %d of ~%d printed move numbers",
-				r.Chunks, r.Tokens, r.NumberedTokens, r.PrintedNumbers)
-			t.Logf("games %d, numbered moves replayed %d of %d (%.1f%%), main line reached: median move %d, max move %d",
-				r.Games, r.ReplayedMoves, r.GameMoves, 100*r.replayedShare(), r.medianReached(), slices.Max(append(r.Reached, 0)))
-
-			want, ok := minimums[name]
-			if !ok {
-				t.Logf("no thresholds for %s in thresholds.json; measured only", name)
-				return
-			}
-			if r.NumberedTokens < want.NumberedTokens {
-				t.Errorf("numbered tokens = %d, want at least %d", r.NumberedTokens, want.NumberedTokens)
-			}
-			if r.replayedShare() < want.ReplayedShare {
-				t.Errorf("replayed share = %.3f, want at least %.3f", r.replayedShare(), want.ReplayedShare)
-			}
-			if r.Games < want.Games {
-				t.Errorf("games = %d, want at least %d", r.Games, want.Games)
-			}
-			if r.medianReached() < want.MedianReached {
-				t.Errorf("median move reached = %d, want at least %d", r.medianReached(), want.MedianReached)
+			chunks := book.ChunkBlocks(doc.Blocks)
+			for _, mode := range modes {
+				t.Run(mode.name, func(t *testing.T) {
+					r := measure(chunks, mode.opts)
+					r.log(t)
+					want, ok := minimums[name][mode.name]
+					if !ok {
+						t.Logf("no %s thresholds for %s in thresholds.json; measured only", mode.name, name)
+						return
+					}
+					r.check(t, want)
+				})
 			}
 		})
+	}
+}
+
+func (r report) log(t *testing.T) {
+	t.Logf("chunks %d, tokens %d, numbered tokens %d (~%d dotted move numbers in the text)",
+		r.Chunks, r.Tokens, r.NumberedTokens, r.PrintedNumbers)
+	t.Logf("games %d, numbered moves replayed %d of %d (%.1f%%), main line reached: median move %d, max move %d",
+		r.Games, r.ReplayedMoves, r.GameMoves, 100*r.replayedShare(), r.medianReached(), slices.Max(append(r.Reached, 0)))
+	if r.Ambiguous > 0 {
+		t.Logf("ambiguous numbered moves %d, %.1f legal candidates each on average",
+			r.Ambiguous, float64(r.Candidates)/float64(r.Ambiguous))
+	}
+}
+
+func (r report) check(t *testing.T, want thresholds) {
+	if r.NumberedTokens < want.NumberedTokens {
+		t.Errorf("numbered tokens = %d, want at least %d", r.NumberedTokens, want.NumberedTokens)
+	}
+	if r.ReplayedMoves < want.ReplayedMoves {
+		t.Errorf("replayed moves = %d, want at least %d", r.ReplayedMoves, want.ReplayedMoves)
+	}
+	if r.Games < want.Games {
+		t.Errorf("games = %d, want at least %d", r.Games, want.Games)
+	}
+	if r.medianReached() < want.MedianReached {
+		t.Errorf("median move reached = %d, want at least %d", r.medianReached(), want.MedianReached)
 	}
 }
 
@@ -117,12 +149,12 @@ func TestPrivateBooks(t *testing.T) {
 // "2 1 ." and "20 . . .". The trailing group keeps decimals such as "4.99" out.
 var printedNumber = regexp.MustCompile(`(?:^|[^\w.])\d(?: ?\d){0,2} ?[.…](?:[^\d]|$)`)
 
-func measure(chunks []book.Chunk) report {
+func measure(chunks []book.Chunk, opts notation.Options) report {
 	r := report{Chunks: len(chunks)}
 	var g *game
 	for _, c := range chunks {
 		r.PrintedNumbers += len(printedNumber.FindAllString(c.Text, -1))
-		tokens := notation.Tokenize(c.Text)
+		tokens := notation.Tokenize(c.Text, opts)
 		r.Tokens += len(tokens)
 		for _, tok := range tokens {
 			if tok.NumberPrinted {
@@ -138,11 +170,14 @@ func measure(chunks []book.Chunk) report {
 			if g == nil {
 				continue
 			}
-			played := g.play(tok)
+			played, candidates := g.play(tok)
 			if tok.NumberPrinted {
 				r.GameMoves++
 				if played {
 					r.ReplayedMoves++
+				} else if candidates > 1 {
+					r.Ambiguous++
+					r.Candidates += candidates
 				}
 			}
 		}
@@ -171,23 +206,25 @@ func newGame() *game {
 // play places a move. A numbered move is played from the latest position on
 // the current line where it is due, which handles variations, and otherwise
 // from the main line, which handles the return from a variation. An
-// unnumbered move continues the current line.
-func (g *game) play(tok notation.Token) bool {
-	spec, ok := englishSpec(tok)
-	if !ok {
-		return false
-	}
-	candidates := []*chess.Node{g.current}
+// unnumbered move continues the current line. When the move is not played,
+// candidates is the number of legal moves it fits where it is ambiguous.
+func (g *game) play(tok notation.Token) (played bool, candidates int) {
+	nodes := []*chess.Node{g.current}
 	if tok.Number > 0 {
-		candidates = g.due(tok)
+		nodes = g.due(tok)
 	}
-	for _, node := range candidates {
-		if next, err := node.Play(tok.ID, spec); err == nil {
+	for _, node := range nodes {
+		next, err := node.PlayPrinted(tok.ID, tok.Move, chess.EnglishNames)
+		if err == nil {
 			g.current = next
-			return true
+			return true, 0
+		}
+		var moveErr *chess.MoveError
+		if errors.As(err, &moveErr) && moveErr.Ambiguous() && candidates == 0 {
+			candidates = len(moveErr.Candidates)
 		}
 	}
-	return false
+	return false, candidates
 }
 
 func (g *game) due(tok notation.Token) []*chess.Node {
@@ -223,32 +260,4 @@ func (g *game) reached() int {
 		n = n.Children[0]
 	}
 	return n.MoveNumber
-}
-
-var englishPieces = map[string]chess.Piece{
-	"":  chess.Pawn,
-	"N": chess.Knight,
-	"B": chess.Bishop,
-	"R": chess.Rook,
-	"Q": chess.Queen,
-	"K": chess.King,
-}
-
-// englishSpec reads a token in English notation, until the notation
-// conventions are detected per book.
-func englishSpec(tok notation.Token) (chess.MoveSpec, bool) {
-	piece, ok := englishPieces[tok.Piece]
-	promotion, promotionOK := englishPieces[tok.Promotion]
-	if !ok || !promotionOK {
-		return chess.MoveSpec{}, false
-	}
-	return chess.MoveSpec{
-		Text:      tok.Text,
-		Piece:     piece,
-		From:      tok.From,
-		To:        tok.To,
-		Capture:   tok.Capture,
-		Promotion: promotion,
-		Castle:    tok.Castle,
-	}, true
 }

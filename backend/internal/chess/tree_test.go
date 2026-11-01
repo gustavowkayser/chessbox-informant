@@ -214,7 +214,7 @@ func newTree(t *testing.T, fen string) *chess.Node {
 // last position.
 func play(t *testing.T, node *chess.Node, text string) *chess.Node {
 	t.Helper()
-	for _, tok := range notation.Tokenize(text) {
+	for _, tok := range notation.Tokenize(text, notation.Options{}) {
 		next, err := node.Play(tok.ID, englishSpec(tok))
 		if err != nil {
 			t.Fatal(err)
@@ -226,7 +226,7 @@ func play(t *testing.T, node *chess.Node, text string) *chess.Node {
 
 func spec(t *testing.T, text string) chess.MoveSpec {
 	t.Helper()
-	tokens := notation.Tokenize(text)
+	tokens := notation.Tokenize(text, notation.Options{})
 	if len(tokens) != 1 {
 		t.Fatalf("%q is not a single move", text)
 	}

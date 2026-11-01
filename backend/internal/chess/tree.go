@@ -52,9 +52,12 @@ func (n *Node) Key() string { return PositionKey(n.FEN()) }
 // played from n returns the existing child, so a variation that repeats the
 // line it branches from does not duplicate it.
 func (n *Node) Play(ref string, spec MoveSpec) (*Node, error) {
-	matches := resolve(n.position, spec)
+	return n.play(ref, spec.Text, resolve(n.position, spec))
+}
+
+func (n *Node) play(ref, text string, matches []lib.Move) (*Node, error) {
 	if len(matches) != 1 {
-		err := &MoveError{Ref: ref, Text: spec.Text, After: n.Line()}
+		err := &MoveError{Ref: ref, Text: text, After: n.Line()}
 		for _, m := range matches {
 			err.Candidates = append(err.Candidates, lib.AlgebraicNotation{}.Encode(n.position, &m))
 		}

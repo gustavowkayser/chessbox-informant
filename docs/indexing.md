@@ -51,6 +51,10 @@ A token is a move *candidate*, not necessarily a move. A square named in prose (
 
 The tokenizer is not tied to a convention: it accepts the piece letters of every convention and keeps them as printed, so detection can tokenize once and try each candidate. It records the printed move number and side. An unnumbered token right after a numbered white move is black's reply (`23.Nf5 b4`); any other unnumbered token gets its side from replay.
 
+Move numbers may also be printed without a period (`24 axb4`) and with a spaced ellipsis (`25 ... Qb6`, `20 . . . Nxe5`).
+
+**OCR-scanned books.** Most chess books found online are scans whose text layer came from OCR, which garbles exactly the move text: piece glyphs come out as `lll`, `:i!`, `'tt>` or U+FFFD, move numbers are split (`2 1 .`), digits are read as letters (`dS` for d5, `l 8` for 18), and spaces appear inside moves (`e 5`, `lll x e5`). The tokenizer's OCR mode accepts these forms. It keeps each token's text and offsets verbatim and leaves the move itself, as printed, to replay. A move that only the OCR grammar accepts is kept only in move context, with a move number or next to another move, so that "on d5" is not read as a move by a piece called "on".
+
 ## 3. Triage (Laya)
 
 [Laya](https://huggingface.co/convaiinnovations/laya) is a System One decision model: a 421M-parameter ModernBERT classifier (Apache-2.0). It does not generate text. It answers typed questions (`choice`, `noul` = P(true), `score`) about a state in a single forward pass. This makes it a cheap way to decide which chunks need the expensive LLM.
@@ -147,6 +151,7 @@ Output is rejected, and the chunk retried, if any of these checks fail:
 
 - Replay the mainline from the running position. Each variation branches from the position before the move it replaces.
 - A printed move is matched against the legal moves of the position, and must match exactly one. Check and mate marks are ignored, because books do not always get them right; an unneeded disambiguation (`Ngf3`) is accepted; a capture mark must agree with the move, which also rejects prose squares that happen to be legal pawn moves. A piece that could not be read (a chess font glyph extracted as U+FFFD) matches any piece but a pawn, and is accepted when only one legal move fits.
+- An OCR'd move is matched the same way, character by character against each legal move: the destination file must be exact and the rank may be a look-alike (`l`, `I`, `i`, `|` for 1, `S` for 5, `B` for 8); the text before it is a piece glyph followed by an optional disambiguation; a glyph never ends with a file letter, so `Rad1` is a rook from the a-file. A glyph with a known meaning must be that piece, and a reading through a known glyph beats one through an unknown glyph. A move that fits several legal moves is not guessed: it is reported as ambiguous with its candidates.
 - Compare the move numbers printed in the tokens with the computed ply. A mismatch means the structure is wrong.
 - When a move is illegal, re-prompt with the exact error, for example: ``m7 `24.Qg3+` is illegal after 23.Nf5 gxf5``. After 2 failed retries, the chunk is marked `failed` with the reason, and the pipeline moves on. Later chunks of the same game continue from the last good position until the move numbers stop lining up or a new game starts.
 - `chessinfo books show <id>` lists the failed chunks.
