@@ -44,8 +44,12 @@ The letters overlap: `R` means rook in English but king in Portuguese, Spanish a
 ```
 Text:   23.Nf5! A move that changes everything. 23...gxf5 (23...Qd7 24.Nh6+ Kh8 25.Qg4 and Black is lost) 24.Qg3+ Kh8 25.Qh4 The point: h7 cannot be defended.
 
-Tokens: [m1 23.Nf5!] A move that changes everything. [m2 23...gxf5] ([m3 23...Qd7] [m4 24.Nh6+] [m5 Kh8] [m6 25.Qg4] and Black is lost) [m7 24.Qg3+] [m8 Kh8] [m9 25.Qh4] The point: h7 cannot be defended.
+Tokens: [m1 23.Nf5!] A move that changes everything. [m2 23...gxf5] ([m3 23...Qd7] [m4 24.Nh6+] [m5 Kh8] [m6 25.Qg4] and Black is lost) [m7 24.Qg3+] [m8 Kh8] [m9 25.Qh4] The point: [m10 h7] cannot be defended.
 ```
+
+A token is a move *candidate*, not necessarily a move. A square named in prose (`h7` above, "a knight on d5") looks exactly like a pawn move, so it becomes a token too; for now the LLM leaves it out and replay rejects it. A later semantic step (System One or the LLM) should label such tokens as squares. Ranges and files (`a1-h8`, `c-file`) never become tokens.
+
+The tokenizer is not tied to a convention: it accepts the piece letters of every convention and keeps them as printed, so detection can tokenize once and try each candidate. It records the printed move number and side. An unnumbered token right after a numbered white move is black's reply (`23.Nf5 b4`); any other unnumbered token gets its side from replay.
 
 ## 3. Triage (Laya)
 

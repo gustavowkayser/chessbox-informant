@@ -10,8 +10,10 @@ flowchart LR
     M4 --> M5
     M4 --> M6
     M4 --> M7
+    M4 --> M7_5[M7.5]
     M5 --> M8
     M6 --> M8
+    M7_5 --> M8
 ```
 
 M5 can start right after M0 by using seeded rows. M7 is not required for the first release.
@@ -54,11 +56,11 @@ Goal: a book becomes ordered chunks, each with its chapter and page, stored in t
 
 Goal: turn move text into verified positions without any model.
 
-- [ ] Move tokenizer: SAN, move numbers, `...`, castling, promotions, annotation glyphs (`! ? !? ?! !! ??`)
+- [x] Move tokenizer: SAN, move numbers, `...`, black moves without a number (`23.Nf5 b4`), castling, promotions, annotation glyphs (`! ? !? ?! !! ??`)
+- [ ] Position key in Go, plus the shared fixture `backend/tests/assets/position_keys.json`
+- [ ] Replay with a variation tree
 - [ ] Notation conventions (English, Portuguese, Spanish, German, French, figurine), detected by replay
 - [ ] Chess fonts without Unicode figurines: some PDFs extract piece glyphs as U+FFFD or stray characters such as `@` or `"1`. Map them per font (font names from `pdftohtml -xml`) to piece letters, and confirm the mapping by replay
-- [ ] Replay with a variation tree
-- [ ] Position key in Go, plus the shared fixture `backend/tests/assets/position_keys.json`
 - [ ] Deterministic parser for bare game scores (the triage fast path)
 
 **Done when:** unit tests cover every convention, reference games replay to the expected FENs, and the fixture's bare game scores parse without any model.
@@ -138,6 +140,20 @@ Goal: handle the content that plain text extraction misses.
 - [ ] Descriptive notation (`P-K4`), resolved against the legal moves
 - [ ] More conventions: Italian, Dutch, Russian
 - [ ] Scanned PDFs via OCR (stretch goal)
+
+## M7.5: Game identification
+
+Goal: recognize which known game a book is annotating, and use it to check and complete what the pipeline parsed.
+
+- [ ] Look up candidate games by position in the Lichess masters explorer, with the game header (players, year) as a tie-breaker
+- [ ] Confirm a match by replaying the reference game against the parsed mainline
+- [ ] Store the game reference with the book's games, and show it in the web app
+- [ ] Use a confirmed game to fill gaps, such as moves the book skips or chunks that failed to parse
+- [ ] Opt-in (`--identify-games`), cached and rate-limited; indexing must work offline without it
+
+Open questions: the explorer's current rate limits and authentication rules, and the `games` table this needs.
+
+**Done when:** the three fixture games are identified, and indexing without network access gives the same quotes as before.
 
 ## M8: Release
 
