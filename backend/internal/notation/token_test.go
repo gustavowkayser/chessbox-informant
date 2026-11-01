@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"chessbox-informant/internal/chess"
 )
 
 func TestTokenizeMove(t *testing.T) {
@@ -24,10 +26,10 @@ func TestTokenizeMove(t *testing.T) {
 		"Bxf3":         {Piece: "B", Capture: true, To: "f3"},
 		"L×e5":         {Piece: "L", Capture: true, To: "e5"},
 		"♘f3":          {Piece: "♘", To: "f3"},
-		"O-O":          {Castle: ShortCastle},
-		"0-0":          {Castle: ShortCastle},
-		"12.O-O-O":     {Number: 12, NumberPrinted: true, Side: White, Castle: LongCastle},
-		"0–0–0":        {Castle: LongCastle},
+		"O-O":          {Castle: chess.ShortCastle},
+		"0-0":          {Castle: chess.ShortCastle},
+		"12.O-O-O":     {Number: 12, NumberPrinted: true, Side: White, Castle: chess.LongCastle},
+		"0–0–0":        {Castle: chess.LongCastle},
 		"exd8=Q+":      {From: "e", Capture: true, To: "d8", Promotion: "Q", Check: true},
 		"exd8Q":        {From: "e", Capture: true, To: "d8", Promotion: "Q"},
 		"a1=♕":         {To: "a1", Promotion: "♕"},

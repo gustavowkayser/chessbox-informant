@@ -58,7 +58,7 @@ Goal: turn move text into verified positions without any model.
 
 - [x] Move tokenizer: SAN, move numbers, `...`, black moves without a number (`23.Nf5 b4`), castling, promotions, annotation glyphs (`! ? !? ?! !! ??`)
 - [x] Position key in Go, plus the shared fixture `backend/tests/assets/position_keys.json`
-- [ ] Replay with a variation tree
+- [x] Replay with a variation tree, including moves whose piece could not be read
 - [ ] Notation conventions (English, Portuguese, Spanish, German, French, figurine), detected by replay
 - [ ] Chess fonts without Unicode figurines: some PDFs extract piece glyphs as U+FFFD or stray characters such as `@` or `"1`. Map them per font (font names from `pdftohtml -xml`) to piece letters, and confirm the mapping by replay
 - [ ] Deterministic parser for bare game scores (the triage fast path)

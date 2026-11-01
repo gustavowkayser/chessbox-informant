@@ -146,6 +146,7 @@ Output is rejected, and the chunk retried, if any of these checks fail:
 ## 5. Replay & validate
 
 - Replay the mainline from the running position. Each variation branches from the position before the move it replaces.
+- A printed move is matched against the legal moves of the position, and must match exactly one. Check and mate marks are ignored, because books do not always get them right; an unneeded disambiguation (`Ngf3`) is accepted; a capture mark must agree with the move, which also rejects prose squares that happen to be legal pawn moves. A piece that could not be read (a chess font glyph extracted as U+FFFD) matches any piece but a pawn, and is accepted when only one legal move fits.
 - Compare the move numbers printed in the tokens with the computed ply. A mismatch means the structure is wrong.
 - When a move is illegal, re-prompt with the exact error, for example: ``m7 `24.Qg3+` is illegal after 23.Nf5 gxf5``. After 2 failed retries, the chunk is marked `failed` with the reason, and the pipeline moves on. Later chunks of the same game continue from the last good position until the move numbers stop lining up or a new game starts.
 - `chessinfo books show <id>` lists the failed chunks.

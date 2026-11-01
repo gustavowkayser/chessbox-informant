@@ -7,6 +7,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"chessbox-informant/internal/chess"
 )
 
 type Side int
@@ -15,14 +17,6 @@ const (
 	UnknownSide Side = iota
 	White
 	Black
-)
-
-type Castle int
-
-const (
-	NoCastle Castle = iota
-	ShortCastle
-	LongCastle
 )
 
 // Token is a move candidate. It is not necessarily a move: a square named in
@@ -48,7 +42,7 @@ type Token struct {
 	To        string
 	Capture   bool
 	Promotion string
-	Castle    Castle
+	Castle    chess.Castle
 	Check     bool
 	Mate      bool
 	// Glyph is the annotation glyph in ASCII form ("!", "?!", …).
@@ -146,9 +140,9 @@ func scan(text string, start int) (Token, bool) {
 // length in bytes.
 func scanMove(s string, tok *Token) (int, bool) {
 	if m := castleMove.FindStringSubmatch(s); m != nil {
-		tok.Castle = ShortCastle
+		tok.Castle = chess.ShortCastle
 		if m[2] != "" {
-			tok.Castle = LongCastle
+			tok.Castle = chess.LongCastle
 		}
 		return len(m[0]), true
 	}
