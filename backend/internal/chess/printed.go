@@ -54,7 +54,7 @@ func (n *Node) PlayPrinted(ref, printed string, names PieceNames) (*Node, error)
 }
 
 func parsePrinted(printed string) (printedMove, bool) {
-	s := strings.Join(strings.Fields(printed), "")
+	s := strings.TrimRight(strings.Join(strings.Fields(printed), ""), "+#")
 	var p printedMove
 	if m := printedCastle.FindStringSubmatch(s); m != nil {
 		p.castle = ShortCastle

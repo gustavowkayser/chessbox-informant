@@ -6,7 +6,6 @@ package books
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,13 +14,11 @@ import (
 
 	"chessbox-informant/internal/book"
 	"chessbox-informant/internal/chess"
+	"chessbox-informant/internal/gamescore"
 	"chessbox-informant/internal/notation"
 )
 
-const (
-	privateDir = "../assets/private"
-	startFEN   = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-)
+const privateDir = "../assets/private"
 
 type thresholds struct {
 	NumberedTokens int `json:"numberedTokens"`
@@ -48,11 +45,11 @@ type report struct {
 	// loose pattern, as a yardstick for the tokenizer.
 	PrintedNumbers int
 	NumberedTokens int
-	// GameMoves counts the numbered tokens that come after a game has
-	// started; ReplayedMoves counts those that replayed.
+	// GameMoves counts the numbered tokens read while a game was open;
+	// ReplayedMoves counts those that replayed.
 	GameMoves     int
 	ReplayedMoves int
-	// Ambiguous counts the numbered moves that fit more than one legal move,
+	// Ambiguous counts the numbered moves left ambiguous after lookahead,
 	// and Candidates the legal moves they fit, in total.
 	Ambiguous  int
 	Candidates int
@@ -151,113 +148,39 @@ var printedNumber = regexp.MustCompile(`(?:^|[^\w.])\d(?: ?\d){0,2} ?[.…](?:[^
 
 func measure(chunks []book.Chunk, opts notation.Options) report {
 	r := report{Chunks: len(chunks)}
-	var g *game
+	p := gamescore.New(chess.EnglishNames)
 	for _, c := range chunks {
 		r.PrintedNumbers += len(printedNumber.FindAllString(c.Text, -1))
 		tokens := notation.Tokenize(c.Text, opts)
 		r.Tokens += len(tokens)
-		for _, tok := range tokens {
-			if tok.NumberPrinted {
-				r.NumberedTokens++
-			}
-			if tok.NumberPrinted && tok.Number == 1 && tok.Side == notation.White {
-				if g != nil {
-					r.Reached = append(r.Reached, g.reached())
-				}
-				g = newGame()
-				r.Games++
-			}
-			if g == nil {
-				continue
-			}
-			played, candidates := g.play(tok)
-			if tok.NumberPrinted {
-				r.GameMoves++
-				if played {
-					r.ReplayedMoves++
-				} else if candidates > 1 {
-					r.Ambiguous++
-					r.Candidates += candidates
-				}
-			}
+		p.Feed(tokens)
+	}
+	p.Finish()
+
+	for _, out := range p.Outcomes() {
+		if !out.Token.NumberPrinted {
+			continue
+		}
+		r.NumberedTokens++
+		if out.Status == gamescore.NoGame {
+			continue
+		}
+		r.GameMoves++
+		switch out.Status {
+		case gamescore.Played:
+			r.ReplayedMoves++
+		case gamescore.Ambiguous:
+			r.Ambiguous++
+			r.Candidates += len(out.Candidates)
 		}
 	}
-	if g != nil {
-		r.Reached = append(r.Reached, g.reached())
+	r.Games = len(p.Games())
+	for _, root := range p.Games() {
+		n := root
+		for len(n.Children) > 0 {
+			n = n.Children[0]
+		}
+		r.Reached = append(r.Reached, n.MoveNumber)
 	}
 	return r
-}
-
-// game follows a game through the book text. It stands in for the bare game
-// score parser, which is not built yet.
-type game struct {
-	root    *chess.Node
-	current *chess.Node
-}
-
-func newGame() *game {
-	root, err := chess.NewTree(startFEN)
-	if err != nil {
-		panic(err)
-	}
-	return &game{root: root, current: root}
-}
-
-// play places a move. A numbered move is played from the latest position on
-// the current line where it is due, which handles variations, and otherwise
-// from the main line, which handles the return from a variation. An
-// unnumbered move continues the current line. When the move is not played,
-// candidates is the number of legal moves it fits where it is ambiguous.
-func (g *game) play(tok notation.Token) (played bool, candidates int) {
-	nodes := []*chess.Node{g.current}
-	if tok.Number > 0 {
-		nodes = g.due(tok)
-	}
-	for _, node := range nodes {
-		next, err := node.PlayPrinted(tok.ID, tok.Move, chess.EnglishNames)
-		if err == nil {
-			g.current = next
-			return true, 0
-		}
-		var moveErr *chess.MoveError
-		if errors.As(err, &moveErr) && moveErr.Ambiguous() && candidates == 0 {
-			candidates = len(moveErr.Candidates)
-		}
-	}
-	return false, candidates
-}
-
-func (g *game) due(tok notation.Token) []*chess.Node {
-	side := chess.White
-	if tok.Side == notation.Black {
-		side = chess.Black
-	}
-	isDue := func(n *chess.Node) bool {
-		number, s := n.NextMove()
-		return number == tok.Number && s == side
-	}
-
-	var nodes []*chess.Node
-	for n := g.current; n != nil; n = n.Parent {
-		if isDue(n) {
-			nodes = append(nodes, n)
-		}
-	}
-	for n := g.root; ; n = n.Children[0] {
-		if isDue(n) && !slices.Contains(nodes, n) {
-			nodes = append(nodes, n)
-		}
-		if len(n.Children) == 0 {
-			break
-		}
-	}
-	return nodes
-}
-
-func (g *game) reached() int {
-	n := g.root
-	for len(n.Children) > 0 {
-		n = n.Children[0]
-	}
-	return n.MoveNumber
 }

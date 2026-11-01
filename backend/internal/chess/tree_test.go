@@ -65,6 +65,20 @@ func TestReplayVariation(t *testing.T) {
 	}
 }
 
+func TestPromoteAndRemove(t *testing.T) {
+	root := newTree(t, startFEN)
+	e4 := play(t, root, "1.e4")
+	d4 := play(t, root, "1.d4")
+	d4.Promote()
+	if got := sans(root.Children); !slices.Equal(got, []string{"d4", "e4"}) {
+		t.Errorf("children = %q, want d4 promoted to the main line", got)
+	}
+	d4.Remove()
+	if got := sans(root.Children); !slices.Equal(got, []string{e4.SAN}) {
+		t.Errorf("children = %q, want only e4", got)
+	}
+}
+
 func TestReplayMoveNumbers(t *testing.T) {
 	root := newTree(t, "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 14 37")
 	end := play(t, root, "37...Nxe4 38.O-O")

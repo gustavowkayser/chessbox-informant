@@ -40,6 +40,7 @@ backend/
     book/              ePUB and PDF extractors, chunker
     notation/          move tokenizer, notation conventions (figurine, localized letters)
     chess/             replay, variation tree, position keys
+    gamescore/         deterministic game score parser: places moves in the tree, lookahead
     llm/               generative provider interface + Ollama implementation
     systemone/         System One client (Ollama `/v1/systemone`)
     pipeline/          stages, per-chunk state, resume

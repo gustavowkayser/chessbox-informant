@@ -44,6 +44,9 @@ type Token struct {
 	Number        int
 	NumberPrinted bool
 	Side          Side
+	// Depth is how many parentheses or brackets are open before the token in
+	// its text: a move inside a variation has a depth of at least 1.
+	Depth int
 	// Piece through Castle are set only when Move is clean notation; an OCR
 	// move is left to chess.Node.PlayPrinted.
 	//
@@ -126,8 +129,25 @@ func Tokenize(text string, opts Options) []Token {
 	for i := range tokens {
 		tokens[i].ID = "m" + strconv.Itoa(i+1)
 	}
+	setDepths(text, tokens)
 	inferBlackMoves(text, tokens)
 	return tokens
+}
+
+func setDepths(text string, tokens []Token) {
+	depth, pos := 0, 0
+	for i := range tokens {
+		for _, r := range text[pos:tokens[i].Start] {
+			switch r {
+			case '(', '[':
+				depth++
+			case ')', ']':
+				depth = max(0, depth-1)
+			}
+		}
+		pos = tokens[i].Start
+		tokens[i].Depth = depth
+	}
 }
 
 func scanAll(text string, ocr bool) []Token {

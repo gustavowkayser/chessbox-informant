@@ -129,6 +129,16 @@ func TestTokenizeSides(t *testing.T) {
 	}
 }
 
+func TestTokenizeDepth(t *testing.T) {
+	var got []int
+	for _, tok := range Tokenize("12.O-O (12.Kb1 Rd8 [12...b4 13.Na4]) 12...Rd8 (Qe6)", Options{}) {
+		got = append(got, tok.Depth)
+	}
+	if want := []int{0, 1, 1, 2, 2, 0, 1}; !slices.Equal(got, want) {
+		t.Errorf("depths = %v, want %v", got, want)
+	}
+}
+
 func TestTokenizeIDsAndOffsets(t *testing.T) {
 	text := "23.Nf5! A move that changes everything. 23...gxf5 (23...Qd7 24.Nh6+ Kh8 25.Qg4 and Black is lost) 24.Qg3+ Kh8 25.Qh4 The point: h7 cannot be defended."
 	want := []string{"23.Nf5!", "23...gxf5", "23...Qd7", "24.Nh6+", "Kh8", "25.Qg4", "24.Qg3+", "Kh8", "25.Qh4", "h7"}

@@ -83,6 +83,21 @@ func (n *Node) play(ref, text string, matches []lib.Move) (*Node, error) {
 	return child, nil
 }
 
+// Remove detaches n, with the moves after it, from the tree.
+func (n *Node) Remove() {
+	if n.Parent != nil {
+		n.Parent.Children = slices.DeleteFunc(n.Parent.Children, func(c *Node) bool { return c == n })
+	}
+}
+
+// Promote makes n the main line at its parent.
+func (n *Node) Promote() {
+	if n.Parent != nil {
+		n.Remove()
+		n.Parent.Children = slices.Insert(n.Parent.Children, 0, n)
+	}
+}
+
 // Path returns the nodes from the root's first move down to n.
 func (n *Node) Path() []*Node {
 	var path []*Node

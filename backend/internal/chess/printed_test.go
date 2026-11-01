@@ -22,6 +22,7 @@ func TestPlayPrinted(t *testing.T) {
 		want               string
 	}{
 		{"clean move", startFEN, "Nf3", nil, "Nf3"},
+		{"check marks are ignored", "6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "Ra8+", chess.EnglishNames, "Ra8#"},
 		{"disambiguation by file", twoRooks, "Rad1", nil, "Rad1"},
 		{"glyph and disambiguation", twoRooks, ":i!ad l", nil, "Rad1"},
 		{"glyph and the other rook", twoRooks, ":i!fd l", nil, "Rfd1"},

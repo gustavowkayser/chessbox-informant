@@ -55,6 +55,14 @@ Move numbers may also be printed without a period (`24 axb4`) and with a spaced 
 
 **OCR-scanned books.** Most chess books found online are scans whose text layer came from OCR, which garbles exactly the move text: piece glyphs come out as `lll`, `:i!`, `'tt>` or U+FFFD, move numbers are split (`2 1 .`), digits are read as letters (`dS` for d5, `l 8` for 18), and spaces appear inside moves (`e 5`, `lll x e5`). The tokenizer's OCR mode accepts these forms. It keeps each token's text and offsets verbatim and leaves the move itself, as printed, to replay. A move that only the OCR grammar accepts is kept only in move context, with a move number or next to another move, so that "on d5" is not read as a move by a piece called "on".
 
+**Game score parser.** The deterministic parser (`internal/gamescore`) follows games through the tokens of the book, across chunks, and builds each game's variation tree without any model. It is the parse step for `game_score` chunks, and the base for detecting a book's piece notation.
+
+- A numbered white move 1 starts a game from the initial position. Games that start from a diagram need M7.
+- A token's depth is the number of parentheses or brackets open before it. A move continues the line being read at its depth, and leaving a variation ends the deeper lines.
+- A numbered move is played where its number is due on that line, or else on the main line. An unnumbered move continues the line.
+- A move outside parentheses outranks one inside: books often give a variation before the main move it replaces, so the main move is promoted to the main line when it comes later.
+- **Lookahead.** A numbered move that fits 2 to 4 legal moves opens a lookahead: every candidate becomes a tentative branch, and the following moves are played on each. A branch dies when a numbered move cannot be placed on it. The last branch standing wins; when the window of 8 numbered moves closes, a branch wins only with at least 2 more moves played than the next. Otherwise the move stays ambiguous, with its candidates, and the game stops: a guess would put a move in the index that the text does not support. A numbered move that no branch can place, or a move outside the variation that holds the ambiguity, closes the lookahead early.
+
 ## 3. Triage (Laya)
 
 [Laya](https://huggingface.co/convaiinnovations/laya) is a System One decision model: a 421M-parameter ModernBERT classifier (Apache-2.0). It does not generate text. It answers typed questions (`choice`, `noul` = P(true), `score`) about a state in a single forward pass. This makes it a cheap way to decide which chunks need the expensive LLM.
