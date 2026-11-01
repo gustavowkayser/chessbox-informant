@@ -4,5 +4,11 @@
         "replayedShare": 0.11,
         "games": 40,
         "medianReached": 5
+    },
+    "my-60-memorable-games.epub": {
+        "numberedTokens": 300,
+        "replayedShare": 0,
+        "games": 0,
+        "medianReached": 0
     }
 }
