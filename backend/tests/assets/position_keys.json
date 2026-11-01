@@ -1,0 +1,67 @@
+[
+    {
+        "name": "starting position",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "key": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"
+    },
+    {
+        "name": "en passant field is dropped",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+        "key": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq"
+    },
+    {
+        "name": "same position without the en passant field",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "key": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq"
+    },
+    {
+        "name": "move counters are dropped",
+        "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 14 37",
+        "key": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq"
+    },
+    {
+        "name": "black to move with partial castling rights",
+        "fen": "r3k2r/8/8/8/8/8/8/R3K2R b Kq - 3 20",
+        "key": "r3k2r/8/8/8/8/8/8/R3K2R b Kq"
+    },
+    {
+        "name": "no castling rights",
+        "fen": "1K6/2P5/8/8/8/8/3r4/k7 w - - 0 1",
+        "key": "1K6/2P5/8/8/8/8/3r4/k7 w -"
+    },
+    {
+        "name": "castling field is kept as written",
+        "fen": "r3k2r/8/8/8/8/8/8/R3K2R w kqKQ - 0 1",
+        "key": "r3k2r/8/8/8/8/8/8/R3K2R w kqKQ"
+    },
+    {
+        "name": "four fields",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6",
+        "key": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq"
+    },
+    {
+        "name": "three fields",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq",
+        "key": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"
+    },
+    {
+        "name": "extra ASCII whitespace",
+        "fen": "  rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR \t w  KQkq\r\n- 0 1\n",
+        "key": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"
+    },
+    {
+        "name": "non-ASCII whitespace does not separate fields",
+        "fen": "8/8/8/8/8/8/8/K6k w - - 0 1",
+        "key": "8/8/8/8/8/8/8/K6k w - -"
+    },
+    {
+        "name": "fewer than three fields",
+        "fen": "8/8/8 w",
+        "key": "8/8/8 w"
+    },
+    {
+        "name": "empty",
+        "fen": "",
+        "key": ""
+    }
+]

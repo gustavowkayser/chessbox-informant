@@ -100,7 +100,13 @@ key = <placement> <side> <castling>
 
 Example: `rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2` → `rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq`
 
-Building the key is plain string handling, with no chess logic. It is implemented twice, in Go (`internal/chess`) and TypeScript (`frontend/src/modules/quotes/domain/position-key.ts`), and both are tested against the shared fixture `backend/tests/assets/position_keys.json`.
+Building the key is plain string handling, with no chess logic:
+
+- Fields are separated by runs of ASCII whitespace (space, tab, CR, LF) only. Other Unicode spaces are not separators, because Go and JavaScript disagree on which ones count as whitespace.
+- The first three fields are joined with single spaces. A FEN with fewer fields keeps the ones it has.
+- The castling field is kept as written; it is not reordered or checked.
+
+It is implemented twice, in Go (`internal/chess`) and TypeScript (`frontend/src/modules/quotes/domain/position-key.ts`), and both are tested against the shared fixture `backend/tests/assets/position_keys.json`.
 
 The web app does not validate the FEN. A malformed or unknown FEN simply matches no quotes.
 

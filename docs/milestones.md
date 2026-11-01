@@ -57,7 +57,7 @@ Goal: a book becomes ordered chunks, each with its chapter and page, stored in t
 Goal: turn move text into verified positions without any model.
 
 - [x] Move tokenizer: SAN, move numbers, `...`, black moves without a number (`23.Nf5 b4`), castling, promotions, annotation glyphs (`! ? !? ?! !! ??`)
-- [ ] Position key in Go, plus the shared fixture `backend/tests/assets/position_keys.json`
+- [x] Position key in Go, plus the shared fixture `backend/tests/assets/position_keys.json`
 - [ ] Replay with a variation tree
 - [ ] Notation conventions (English, Portuguese, Spanish, German, French, figurine), detected by replay
 - [ ] Chess fonts without Unicode figurines: some PDFs extract piece glyphs as U+FFFD or stray characters such as `@` or `"1`. Map them per font (font names from `pdftohtml -xml`) to piece letters, and confirm the mapping by replay
