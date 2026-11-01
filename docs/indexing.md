@@ -37,7 +37,11 @@ The guiding rule: **models classify and link, deterministic code handles chess.*
 | French | R | D | T | F | C |
 | Figurine | ♔ ♚ | ♕ ♛ | ♖ ♜ | ♗ ♝ | ♘ ♞ |
 
-The letters overlap: `R` means rook in English but king in Portuguese, Spanish and French. For that reason, detection replays the first move tokens of the book under each candidate convention and picks the one that produces the most legal moves. The result is stored in `books.notation` and can be overridden with `--notation`. Descriptive notation (`P-K4`) is planned for M7.
+The letters overlap: `R` means rook in English but king in Portuguese, Spanish and French. For that reason, detection (`gamescore.Detect`) parses the whole book under each candidate convention, with the [game score parser](#game-score-parser), and keeps the one that replays the most numbered moves. Figurines mean the same in every convention.
+
+**Learned glyphs.** OCR and chess fonts leave piece glyphs of their own (`lll`, `.i`, `_`), which differ from book to book. A move whose glyph is unknown can still replay when only one legal move fits, and those moves show what the glyph means. A glyph is learned once at least 5 of its moves replayed and at least 90% of them were the same piece. U+FFFD, which OCR leaves for several pieces, never agrees enough and stays unknown. Every learned glyph settles moves that were ambiguous, which teaches more, so learning repeats until nothing new is learned (at most 5 rounds). Learned glyphs never override a convention's letters, so learning runs on top of every candidate, plus one with no letters at all, and the candidate that replays the most after learning wins.
+
+For an OCR-scanned book, the winning convention is the letter set that replays best, not necessarily the book's language: a stray `A` that is really a bishop is enough to make Spanish win. The convention and the learned glyphs are stored per book in `books.notation`, and can be overridden with `--notation`. Descriptive notation (`P-K4`) is planned for M7.
 
 **Tokenizing.** Find move candidates (`23.Nf5!`, `23...gxf5`, `O-O`, `exd8=Q+`) and give each an ID. The LLM sees the IDs inline:
 
@@ -55,7 +59,7 @@ Move numbers may also be printed without a period (`24 axb4`) and with a spaced 
 
 **OCR-scanned books.** Most chess books found online are scans whose text layer came from OCR, which garbles exactly the move text: piece glyphs come out as `lll`, `:i!`, `'tt>` or U+FFFD, move numbers are split (`2 1 .`), digits are read as letters (`dS` for d5, `l 8` for 18), and spaces appear inside moves (`e 5`, `lll x e5`). The tokenizer's OCR mode accepts these forms. It keeps each token's text and offsets verbatim and leaves the move itself, as printed, to replay. A move that only the OCR grammar accepts is kept only in move context, with a move number or next to another move, so that "on d5" is not read as a move by a piece called "on".
 
-**Game score parser.** The deterministic parser (`internal/gamescore`) follows games through the tokens of the book, across chunks, and builds each game's variation tree without any model. It is the parse step for `game_score` chunks, and the base for detecting a book's piece notation.
+<a id="game-score-parser"></a>**Game score parser.** The deterministic parser (`internal/gamescore`) follows games through the tokens of the book, across chunks, and builds each game's variation tree without any model. It is the parse step for `game_score` chunks, and the base for detecting a book's piece notation.
 
 - A numbered white move 1 starts a game from the initial position. Games that start from a diagram need M7.
 - A token's depth is the number of parentheses or brackets open before it. A move continues the line being read at its depth, and leaving a variation ends the deeper lines.

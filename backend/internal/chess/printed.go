@@ -2,6 +2,7 @@ package chess
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	lib "github.com/corentings/chess/v2"
@@ -138,6 +139,36 @@ func (p printedMove) match(pos *lib.Position, m lib.Move, names PieceNames) matc
 		}
 	}
 	return best
+}
+
+var sanPieces = map[byte]Piece{'K': King, 'Q': Queen, 'R': Rook, 'B': Bishop, 'N': Knight}
+
+// PrintedGlyph returns the piece glyph of a printed move that was played as
+// san, and the piece it stood for. The disambiguation that san shows is
+// stripped, so ":i!ad l" played as Rad1 gives ":i!". It is false for pawn
+// moves and castling.
+func PrintedGlyph(printed, san string) (string, Piece, bool) {
+	p, ok := parsePrinted(printed)
+	piece, isPiece := sanPieces[san[0]]
+	if !ok || p.castle != NoCastle || !isPiece {
+		return "", 0, false
+	}
+	core, _, _ := strings.Cut(strings.TrimRight(san, "+#"), "=")
+	disambiguation := []rune(strings.ReplaceAll(core[1:len(core)-2], "x", ""))
+
+	glyph := p.before
+	if k := len(disambiguation); k > 0 && len(glyph) > k {
+		tail := glyph[len(glyph)-k:]
+		if slices.EqualFunc(tail, disambiguation, func(printed, d rune) bool {
+			return printed == d || rankOf(printed) == byte(d)
+		}) {
+			glyph = glyph[:len(glyph)-k]
+		}
+	}
+	if len(glyph) == 0 {
+		return "", 0, false
+	}
+	return string(glyph), piece, true
 }
 
 func (p printedMove) matchesPromotion(m lib.Move, names PieceNames) bool {

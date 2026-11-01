@@ -53,6 +53,28 @@ func TestPlayPrinted(t *testing.T) {
 	}
 }
 
+func TestPrintedGlyph(t *testing.T) {
+	cases := []struct {
+		printed, san string
+		glyph        string
+		piece        chess.Piece
+		ok           bool
+	}{
+		{"lll f3", "Nf3", "lll", chess.Knight, true},
+		{":i!ad l", "Rad1", ":i!", chess.Rook, true},
+		{"'Wxd5+", "Qxd5+", "'W", chess.Queen, true},
+		{"_:ge7", "Nge7", "_:", chess.Knight, true},
+		{"dS", "d5", "", 0, false},
+		{"0-0", "O-O", "", 0, false},
+	}
+	for _, c := range cases {
+		glyph, piece, ok := chess.PrintedGlyph(c.printed, c.san)
+		if glyph != c.glyph || piece != c.piece || ok != c.ok {
+			t.Errorf("PrintedGlyph(%q, %q) = %q, %v, %v; want %q, %v, %v", c.printed, c.san, glyph, piece, ok, c.glyph, c.piece, c.ok)
+		}
+	}
+}
+
 func TestPlayPrintedError(t *testing.T) {
 	_, err := newTree(t, startFEN).PlayPrinted("m4", "2 1 .:i!d l", nil)
 	if want := "m4 `2 1 .:i!d l` is illegal in the starting position"; err == nil || err.Error() != want {

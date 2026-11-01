@@ -61,7 +61,7 @@ Goal: turn move text into verified positions without any model, including OCR-sc
 - [x] Replay with a variation tree, including moves whose piece could not be read
 - [x] Tests against the books in `backend/tests/assets/private/`, skipped when there are none: token counts, the share of numbered moves that replay, and the games replayed from move 1 to the end. They report numbers only, never book text
 - [x] OCR-tolerant tokenizing and move matching: split move numbers and ellipses (`2 1 .`, `. . .`), digits read as letters in numbers and squares (`l` and `I` for 1, `S` for 5, `O` for 0), spaces inside a move (`e 5`), move numbers without a period (`24 axb4`), and unreadable piece glyphs before a square
-- [ ] Piece notation detected by replay: the conventions (English, Portuguese, Spanish, German, French, figurine) as candidates, plus a per-book mapping, learned by replay, for chess-font and OCR glyphs (`lll`, `:i!`, `'tt>`, U+FFFD)
+- [x] Piece notation detected by replay: the conventions (English, Portuguese, Spanish, German, French, figurine) as candidates, plus a per-book mapping, learned by replay, for chess-font and OCR glyphs (`lll`, `:i!`, `'tt>`, U+FFFD)
 - [x] Deterministic parser for bare game scores (the triage fast path), with lookahead over ambiguous moves
 
 **Done when:** unit tests cover every convention, reference games replay to the expected FENs, the fixture's bare game scores parse without any model, and the private books, when present, reach the replay thresholds measured for them.

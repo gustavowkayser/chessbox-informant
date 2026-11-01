@@ -6,10 +6,13 @@ package books
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 
 	"chessbox-informant/internal/book"
@@ -54,6 +57,7 @@ type report struct {
 	Ambiguous  int
 	Candidates int
 	Games      int
+	Detection  gamescore.Detection
 	// Reached holds, per game, the move number at the end of its main line.
 	Reached []int
 }
@@ -121,10 +125,28 @@ func (r report) log(t *testing.T) {
 		r.Chunks, r.Tokens, r.NumberedTokens, r.PrintedNumbers)
 	t.Logf("games %d, numbered moves replayed %d of %d (%.1f%%), main line reached: median move %d, max move %d",
 		r.Games, r.ReplayedMoves, r.GameMoves, 100*r.replayedShare(), r.medianReached(), slices.Max(append(r.Reached, 0)))
+	t.Logf("notation %s, %d glyphs learned%s", r.Detection.Convention, len(r.Detection.Learned), learnedSummary(r.Detection.Learned))
 	if r.Ambiguous > 0 {
 		t.Logf("ambiguous numbered moves %d, %.1f legal candidates each on average",
 			r.Ambiguous, float64(r.Candidates)/float64(r.Ambiguous))
 	}
+}
+
+var pieceNames = map[chess.Piece]string{
+	chess.Knight: "N", chess.Bishop: "B", chess.Rook: "R", chess.Queen: "Q", chess.King: "K",
+}
+
+// learnedSummary lists the most used learned glyphs, such as "lll=N (120)".
+func learnedSummary(learned map[string]gamescore.LearnedGlyph) string {
+	glyphs := slices.SortedFunc(maps.Keys(learned), func(a, b string) int { return learned[b].Moves - learned[a].Moves })
+	var parts []string
+	for _, g := range glyphs[:min(len(glyphs), 12)] {
+		parts = append(parts, fmt.Sprintf("%q=%s (%d)", g, pieceNames[learned[g].Piece], learned[g].Moves))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(parts, ", ")
 }
 
 func (r report) check(t *testing.T, want thresholds) {
@@ -148,12 +170,16 @@ var printedNumber = regexp.MustCompile(`(?:^|[^\w.])\d(?: ?\d){0,2} ?[.…](?:[^
 
 func measure(chunks []book.Chunk, opts notation.Options) report {
 	r := report{Chunks: len(chunks)}
-	p := gamescore.New(chess.EnglishNames)
+	var tokens [][]notation.Token
 	for _, c := range chunks {
 		r.PrintedNumbers += len(printedNumber.FindAllString(c.Text, -1))
-		tokens := notation.Tokenize(c.Text, opts)
-		r.Tokens += len(tokens)
-		p.Feed(tokens)
+		tokens = append(tokens, notation.Tokenize(c.Text, opts))
+		r.Tokens += len(tokens[len(tokens)-1])
+	}
+	r.Detection = gamescore.Detect(tokens)
+	p := gamescore.New(r.Detection.Names)
+	for _, chunk := range tokens {
+		p.Feed(chunk)
 	}
 	p.Finish()
 
