@@ -264,6 +264,7 @@ create index quote_positions_position_key on quote_positions (position_key);
 | `CHESSINFO_LLM_MODEL` | `--model` | `qwen3.5:9b` | chessinfo |
 | `CHESSINFO_LLM_NUM_CTX` | `--num-ctx` | `8192` | chessinfo |
 | `CHESSINFO_SYSTEMONE_MODEL` | `--systemone-model` | `laya` | chessinfo |
+| `CHESSINFO_POPPLER_DIR` | `--poppler-dir` | empty (use `PATH`) | chessinfo |
 
 Flags override environment variables, which override the defaults (`internal/config`). All flags are global, on the root command.
 
@@ -277,7 +278,7 @@ All decisions below are **approved**. D5 is approved for now and will be revisit
 | D2 | Generative provider | Ollama `/api/chat` with a JSON-schema `format`, behind an `llm.Provider` interface. | Easy local setup on every OS, with structured output. An OpenAI-compatible provider (LM Studio, llama.cpp) can be added later. |
 | D3 | System One provider | Laya served by Ollama (`ollama pull laya`, `POST /v1/systemone`, Ollama 0.40+), at `CHESSINFO_OLLAMA_URL`. | One runtime for both models, and no Python dependency. Laya's own Python server (`laya-serve`) speaks the same wire format, but is no longer needed. |
 | D4 | Default LLM | `qwen3.5:9b`, with `qwen3.5:4b` as the low-memory fallback. | See the [VRAM budget](indexing.md#models-and-the-8-gb-vram-budget). |
-| D5 | PDF text | Poppler `pdftotext -layout`, behind a `book.Extractor` interface. | Robust, and needs no cgo on Windows. MuPDF (`go-fitz`) is the alternative if image diagrams (M7) need it. |
+| D5 | PDF text | Poppler `pdftotext -bbox-layout` for the text with line positions, and `pdftohtml -xml` for the outline, behind a `book.Extractor` interface. | Robust, and needs no cgo on Windows. `-bbox-layout` keeps Poppler's reading order, which separates the columns of two-column books; `-layout` prints them side by side on each line. MuPDF (`go-fitz`) is the alternative if image diagrams (M7) need it. |
 | D6 | ePUB text | Pure Go: `archive/zip` + `golang.org/x/net/html`. | No external dependency. |
 | D7 | Chess rules | `github.com/corentings/chess/v2` | A maintained fork of `notnil/chess`. |
 | D8 | Database access | `pgx/v5` in Go; `postgres` (postgres.js) in the web app. | Both are the standard choices. |

@@ -29,6 +29,8 @@ type Document struct {
 	Format   Format
 	Metadata Metadata
 	Blocks   []Block
+	// Warnings describe problems that did not stop the extraction.
+	Warnings []string
 }
 
 type Extractor interface {

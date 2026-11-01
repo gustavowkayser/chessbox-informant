@@ -16,6 +16,7 @@ type Config struct {
 	LLMModel       string
 	LLMNumCtx      int
 	SystemOneModel string
+	PopplerDir     string
 }
 
 func Default() Config {
@@ -79,6 +80,8 @@ var settings = []setting{
 		func(c *Config) *int { return &c.LLMNumCtx }),
 	stringSetting("SYSTEMONE_MODEL", "systemone-model", "System One model name",
 		func(c *Config) *string { return &c.SystemOneModel }),
+	stringSetting("POPPLER_DIR", "poppler-dir", "Directory with the Poppler tools (default: PATH)",
+		func(c *Config) *string { return &c.PopplerDir }),
 }
 
 func RegisterFlags(fs *pflag.FlagSet) {
