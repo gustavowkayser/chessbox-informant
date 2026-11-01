@@ -27,7 +27,7 @@ All models run locally, and no book content is ever sent over the network.
 | `chessinfo index <file>` | Index a book. Resumable; re-indexing an unchanged file does nothing. |
 | `chessinfo books list` / `show <book>` / `remove <book>` | Manage indexed books and inspect failures. `<book>` is a book ID or SHA-256, or a unique prefix of either; `remove` asks for confirmation unless `--yes` is given. |
 | `chessinfo migrate` | Apply database migrations. |
-| `chessinfo doctor` | Check Postgres, Ollama (version, pulled models, `/v1/systemone`) and VRAM. |
+| `chessinfo doctor` | Check Postgres (connection, migrations), Ollama (version 0.40+, pulled models, `/v1/systemone`) and, with `--load`, how much of the LLM fits in VRAM. A missing System One model is a warning, because triage is optional. |
 | `chessinfo eval <fixture>` | Measure indexing accuracy against a fixture's ground truth. |
 
 Planned package layout:
@@ -41,6 +41,7 @@ backend/
     notation/          move tokenizer, notation conventions (figurine, localized letters)
     chess/             replay, variation tree, position keys
     gamescore/         deterministic game score parser: places moves in the tree, lookahead
+    ollama/            shared Ollama HTTP client: requests, API errors, model checks
     llm/               generative provider interface + Ollama implementation
     systemone/         System One client (Ollama `/v1/systemone`)
     pipeline/          stages, per-chunk state, resume
