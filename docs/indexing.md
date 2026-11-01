@@ -37,15 +37,35 @@ The guiding rule: **models classify and link, deterministic code handles chess.*
 | French | R | D | T | F | C |
 | Figurine | ♔ ♚ | ♕ ♛ | ♖ ♜ | ♗ ♝ | ♘ ♞ |
 
-The letters overlap: `R` means rook in English but king in Portuguese, Spanish and French. For that reason, detection replays the first move tokens of the book under each candidate convention and picks the one that produces the most legal moves. The result is stored in `books.notation` and can be overridden with `--notation`. Descriptive notation (`P-K4`) is planned for M7.
+The letters overlap: `R` means rook in English but king in Portuguese, Spanish and French. For that reason, detection (`gamescore.Detect`) parses the whole book under each candidate convention, with the [game score parser](#game-score-parser), and keeps the one that replays the most numbered moves. Figurines mean the same in every convention.
+
+**Learned glyphs.** OCR and chess fonts leave piece glyphs of their own (`lll`, `.i`, `_`), which differ from book to book. A move whose glyph is unknown can still replay when only one legal move fits, and those moves show what the glyph means. A glyph is learned once at least 5 of its moves replayed and at least 90% of them were the same piece. U+FFFD, which OCR leaves for several pieces, never agrees enough and stays unknown. Every learned glyph settles moves that were ambiguous, which teaches more, so learning repeats until nothing new is learned (at most 5 rounds). Learned glyphs never override a convention's letters, so learning runs on top of every candidate, plus one with no letters at all, and the candidate that replays the most after learning wins.
+
+For an OCR-scanned book, the winning convention is the letter set that replays best, not necessarily the book's language: a stray `A` that is really a bishop is enough to make Spanish win. The convention and the learned glyphs are stored per book in `books.notation`, and can be overridden with `--notation`. Descriptive notation (`P-K4`) is planned for M7.
 
 **Tokenizing.** Find move candidates (`23.Nf5!`, `23...gxf5`, `O-O`, `exd8=Q+`) and give each an ID. The LLM sees the IDs inline:
 
 ```
 Text:   23.Nf5! A move that changes everything. 23...gxf5 (23...Qd7 24.Nh6+ Kh8 25.Qg4 and Black is lost) 24.Qg3+ Kh8 25.Qh4 The point: h7 cannot be defended.
 
-Tokens: [m1 23.Nf5!] A move that changes everything. [m2 23...gxf5] ([m3 23...Qd7] [m4 24.Nh6+] [m5 Kh8] [m6 25.Qg4] and Black is lost) [m7 24.Qg3+] [m8 Kh8] [m9 25.Qh4] The point: h7 cannot be defended.
+Tokens: [m1 23.Nf5!] A move that changes everything. [m2 23...gxf5] ([m3 23...Qd7] [m4 24.Nh6+] [m5 Kh8] [m6 25.Qg4] and Black is lost) [m7 24.Qg3+] [m8 Kh8] [m9 25.Qh4] The point: [m10 h7] cannot be defended.
 ```
+
+A token is a move *candidate*, not necessarily a move. A square named in prose (`h7` above, "a knight on d5") looks exactly like a pawn move, so it becomes a token too; for now the LLM leaves it out and replay rejects it. A later semantic step (System One or the LLM) should label such tokens as squares. Ranges and files (`a1-h8`, `c-file`) never become tokens.
+
+The tokenizer is not tied to a convention: it accepts the piece letters of every convention and keeps them as printed, so detection can tokenize once and try each candidate. It records the printed move number and side. An unnumbered token right after a numbered white move is black's reply (`23.Nf5 b4`); any other unnumbered token gets its side from replay.
+
+Move numbers may also be printed without a period (`24 axb4`) and with a spaced ellipsis (`25 ... Qb6`, `20 . . . Nxe5`).
+
+**OCR-scanned books.** Most chess books found online are scans whose text layer came from OCR, which garbles exactly the move text: piece glyphs come out as `lll`, `:i!`, `'tt>` or U+FFFD, move numbers are split (`2 1 .`), digits are read as letters (`dS` for d5, `l 8` for 18), and spaces appear inside moves (`e 5`, `lll x e5`). The tokenizer's OCR mode accepts these forms. It keeps each token's text and offsets verbatim and leaves the move itself, as printed, to replay. A move that only the OCR grammar accepts is kept only in move context, with a move number or next to another move, so that "on d5" is not read as a move by a piece called "on".
+
+<a id="game-score-parser"></a>**Game score parser.** The deterministic parser (`internal/gamescore`) follows games through the tokens of the book, across chunks, and builds each game's variation tree without any model. It is the parse step for `game_score` chunks, and the base for detecting a book's piece notation.
+
+- A numbered white move 1 starts a game from the initial position. Games that start from a diagram need M7.
+- A token's depth is the number of parentheses or brackets open before it. A move continues the line being read at its depth, and leaving a variation ends the deeper lines.
+- A numbered move is played where its number is due on that line, or else on the main line. An unnumbered move continues the line.
+- A move outside parentheses outranks one inside: books often give a variation before the main move it replaces, so the main move is promoted to the main line when it comes later.
+- **Lookahead.** A numbered move that fits 2 to 4 legal moves opens a lookahead: every candidate becomes a tentative branch, and the following moves are played on each. A branch dies when a numbered move cannot be placed on it. The last branch standing wins; when the window of 8 numbered moves closes, a branch wins only with at least 2 more moves played than the next. Otherwise the move stays ambiguous, with its candidates, and the game stops: a guess would put a move in the index that the text does not support. A numbered move that no branch can place, or a move outside the variation that holds the ambiguity, closes the lookahead early.
 
 ## 3. Triage (Laya)
 
@@ -142,6 +162,8 @@ Output is rejected, and the chunk retried, if any of these checks fail:
 ## 5. Replay & validate
 
 - Replay the mainline from the running position. Each variation branches from the position before the move it replaces.
+- A printed move is matched against the legal moves of the position, and must match exactly one. Check and mate marks are ignored, because books do not always get them right; an unneeded disambiguation (`Ngf3`) is accepted; a capture mark must agree with the move, which also rejects prose squares that happen to be legal pawn moves. A piece that could not be read (a chess font glyph extracted as U+FFFD) matches any piece but a pawn, and is accepted when only one legal move fits.
+- An OCR'd move is matched the same way, character by character against each legal move: the destination file must be exact and the rank may be a look-alike (`l`, `I`, `i`, `|` for 1, `S` for 5, `B` for 8); the text before it is a piece glyph followed by an optional disambiguation; a glyph never ends with a file letter, so `Rad1` is a rook from the a-file. A glyph with a known meaning must be that piece, and a reading through a known glyph beats one through an unknown glyph. A move that fits several legal moves is not guessed: it is reported as ambiguous with its candidates.
 - Compare the move numbers printed in the tokens with the computed ply. A mismatch means the structure is wrong.
 - When a move is illegal, re-prompt with the exact error, for example: ``m7 `24.Qg3+` is illegal after 23.Nf5 gxf5``. After 2 failed retries, the chunk is marked `failed` with the reason, and the pipeline moves on. Later chunks of the same game continue from the last good position until the move numbers stop lining up or a new game starts.
 - `chessinfo books show <id>` lists the failed chunks.
@@ -211,7 +233,7 @@ Each fixture lives in `backend/tests/assets/<name>/`:
 - triage accuracy against labels (M6)
 - time per stage
 
-Books you own are for manual testing only. Never commit them.
+Books you own go in `backend/tests/assets/private/`, which is git-ignored. Never commit them. `make test-books` extracts, tokenizes and replays each of them and reports numbers only: tokens found, the share of numbered moves that replay, and how far each game replays. Minimums per book are kept in `backend/tests/books/thresholds.json` and raised as the pipeline improves; a book without an entry is measured but never fails.
 
 ## References
 

@@ -17,6 +17,7 @@ backend/                 Go module `chessbox-informant`, binary `chessinfo` (cob
   internal/              application packages (layout in docs/architecture.md)
   database/migrations/   SQL migrations
   tests/assets/          test fixtures (public-domain or project-authored only)
+  tests/assets/private/  books you own, for local measurement only; git-ignored, never commit
 frontend/                Next.js 16 + React 19, Bun, Biome, Tailwind 4, zustand, chess.js, react-chessboard
   src/app/api/v1/quotes/ read-only quotes endpoint (inbound adapter)
   src/app/contexts/      zustand chess store
@@ -37,7 +38,7 @@ cd frontend && bun run lint              # biome check
 cd frontend && bun run format            # biome format --write
 ```
 
-The Makefile wraps these: `make db-up migrate test`, `make build` (`backend/bin/chessinfo`), `make lint`, `make dev`, `make fixtures` (regenerates the fixture ePUB and PDF from `book.md`). `make test` runs the database tests against `CHESSINFO_TEST_DATABASE_URL` (default: the local compose database); each test creates and drops its own database.
+The Makefile wraps these: `make db-up migrate test`, `make build` (`backend/bin/chessinfo`), `make lint`, `make dev`, `make fixtures` (regenerates the fixture ePUB and PDF from `book.md`). `make test-books` reports how the deterministic code copes with the real books in `backend/tests/assets/private/` (git-ignored; `make test` runs it too and skips it when the folder is empty). `make test` runs the database tests against `CHESSINFO_TEST_DATABASE_URL` (default: the local compose database); each test creates and drops its own database.
 
 ## Conventions
 

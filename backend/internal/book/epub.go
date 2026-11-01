@@ -61,6 +61,7 @@ type epubPackage struct {
 	manifest  map[string]manifestItem
 	spine     []string
 	ncxItemID string
+	warnings  []string
 }
 
 func readEPUB(zr *zip.Reader) (Document, error) {
@@ -98,7 +99,7 @@ func readEPUB(zr *zip.Reader) (Document, error) {
 			return Document{}, err
 		}
 	}
-	return Document{Format: FormatEPUB, Metadata: pkg.metadata, Blocks: walker.blocks}, nil
+	return Document{Format: FormatEPUB, Metadata: pkg.metadata, Blocks: walker.blocks, Warnings: pkg.warnings}, nil
 }
 
 func walkContent(archive epubArchive, name string, walker *contentWalker) error {
@@ -168,7 +169,8 @@ func readPackage(archive epubArchive, opfPath string) (epubPackage, error) {
 		}
 		item, ok := pkg.manifest[ref.IDRef]
 		if !ok {
-			return epubPackage{}, fmt.Errorf("%s: spine item %q is not in the manifest", opfPath, ref.IDRef)
+			pkg.warnings = append(pkg.warnings, fmt.Sprintf("%s: skipped spine item %q, which is not in the manifest", opfPath, ref.IDRef))
+			continue
 		}
 		if item.mediaType == "application/xhtml+xml" || item.mediaType == "text/html" {
 			pkg.spine = append(pkg.spine, item.path)
