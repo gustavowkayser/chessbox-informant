@@ -171,6 +171,8 @@ create index quote_positions_position_key on quote_positions (position_key);
 ```
 
 - `books.models` records which models and versions indexed the book, so results stay reproducible.
+- `books.status` is `extracted` once `chessinfo index` has stored the book's chunks. The pipeline statuses are added in M4.
+- `books.title` falls back to the file name when the book has no title metadata.
 - `chunks.stage` drives resume. Its values are `extracted`, `triaged`, `skipped`, `parsed`, `linked` and `failed`.
 - `quotes.main_variation` and `quotes.analysis` store the lines exactly as the API returns them in `mainVariation` and `moveAnalysis`.
 - `quotes.relevancy` is Laya's `instructive` score divided by 3, giving 0, 0.33, 0.67 or 1. It is 0 when triage is off.

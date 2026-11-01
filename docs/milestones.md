@@ -44,7 +44,7 @@ Goal: a book becomes ordered chunks, each with its chapter and page, stored in t
 - [x] ePUB extractor: spine order, chapters, metadata
 - [x] PDF extractor: text layer, header/footer removal, de-hyphenation; scanned PDFs are rejected
 - [x] Chunker that keeps chapter and page
-- [ ] Book identity by SHA-256; `chessinfo index <file> --dry-run`
+- [x] Book identity by SHA-256; `chessinfo index <file> --dry-run`
 - [ ] `chessinfo books list | show | remove`
 - [x] First fixture: `book.md`, with `book.epub` and `book.pdf` generated from it
 
