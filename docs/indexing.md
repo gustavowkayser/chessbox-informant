@@ -119,12 +119,12 @@ Routing, where τ is a confidence threshold:
 
 **Constraints:**
 
-- **Context window.** The English checkpoint has a 512-token window, so state is capped at about 350 tokens. Longer chunks are triaged in windows, and the most expensive outcome wins (annotation > game score > discussion > other). For books not in English, `laya-multilingual` is used (1,024 tokens by default).
+- **Context window.** Each question is a separate forward pass over the state plus that question's instructions and options, and each pass must fit the window on its own. Ollama loads the English `laya` with a 512-token window, which leaves room for about 220 words of chess text with the `kind` question; a longer state is rejected with HTTP 400, never truncated. State is therefore capped at about 200 words. Longer chunks are triaged in windows, and the most expensive outcome wins (annotation > game score > discussion > other). For books not in English, the multilingual tag `laya:322m-multilingual-bf16` is used. Ollama loads it with an 8,192-token window, but it was trained on 1,024 tokens, so its windows stay within that until M6 shows longer ones are reliable.
 - **Thresholds.** Laya's `confidence` measures how concentrated its answer is, not whether it is correct, and the model is over-confident as shipped. τ starts conservatively at 0.8 and is tuned against labeled fixtures in M6.
 - **Options.** Answer options share a small token budget, so keep them few and short.
 - **Opting out.** Without triage (`--no-triage`, or when Laya is not pulled), every chunk that contains move tokens goes to the LLM. Triage is an optimization; the pipeline must work without it.
 
-**Where Laya is not used:** parsing moves (it cannot generate output), detecting the notation convention (replay is more reliable), and anything that needs more than ~350 tokens of context at once.
+**Where Laya is not used:** parsing moves (it cannot generate output), detecting the notation convention (replay is more reliable), and anything that needs more than one window of context at once.
 
 ## 4. Parse (LLM)
 
@@ -209,14 +209,48 @@ A main variation often continues into later chunks. Each game's open quote is th
 |---|---|---|---|---|
 | Parse | `qwen3.5:9b` | Ollama | 6.6 GB download (Q4) + KV cache | Cap `num_ctx` at 8192. Confirm with `ollama ps` that it runs 100% on the GPU. |
 | Parse, low memory | `qwen3.5:4b` | Ollama | 3.4 GB download | Use when the 9B spills into system RAM. |
-| Triage | `laya` / `laya-multilingual` | Ollama (0.40+) | 421M / 322M params, ≈1 GB in fp16 (estimate) | Published figures: ~33 ms per question on a T4 GPU, ~0.2–0.5 s on CPU. |
+| Triage | `laya` / `laya:322m-multilingual-bf16` | Ollama (0.40+) | 421M / 322M params in BF16; 0.87 GB / 1.17 GB loaded | Published figures: ~33 ms per question on a T4 GPU, ~0.2–0.5 s on CPU. Measured on CPU: see below. |
 | Diagrams (M7) | `qwen3.5:9b` (vision input) | Ollama | Same as parse | |
 
 **Staged execution keeps VRAM free.** Triage runs over the whole book first, with only Laya loaded. The last triage request sends `keep_alive: 0`, so Ollama unloads Laya before the parse stage loads the LLM. The two models never share the GPU.
 
 **`num_ctx` 8192 is enough.** A chunk (≤ ~1,500 tokens) plus the running context, instructions, schema and output fits with room to spare. A larger window costs KV-cache memory that an 8 GB card does not have.
 
-Models are configurable: any Ollama model with JSON-schema structured output works. Real memory use and throughput are measured during M3 and recorded here.
+Models are configurable: any Ollama model with JSON-schema structured output works.
+
+### Measurements
+
+**Laya on CPU** (M3 spike, 2026-11-01). Ollama 0.40.13 on an AMD Ryzen 5 7520U (4 cores, 8 threads), plugged in, `performance` governor. Passages are from the `classics` fixture; every request sends the three triage questions unless noted. Warm figures are over 20 requests with the model loaded; cold includes loading it.
+
+| Model | Passage | Input tokens | Cold | Warm median | Warm p95 |
+|---|---|---|---|---|---|
+| `laya` | one paragraph | 357 | 6.1 s | 3.2 s | 4.3 s |
+| `laya` | 140 words | 945 | 15.1 s | 8.7 s | 14.3 s |
+| `laya` | 140 words, `discusses_previous` only | 303 | 3.2 s | 2.7 s | 2.7 s |
+| `laya:322m-multilingual-bf16` | one paragraph | 356 | 3.0 s | 1.3 s | 1.3 s |
+| `laya:322m-multilingual-bf16` | 140 words | 962 | 5.4 s | 3.8 s | 5.1 s |
+| `laya:322m-multilingual-bf16` | 140 words, `discusses_previous` only | 310 | 4.1 s | 1.3 s | 2.0 s |
+
+- On this CPU a question costs about 1–3 s for `laya`, well above the published 0.2–0.5 s, and time grows with the state: every question reads the whole state again. A book of a few thousand chunks takes hours to triage on CPU, so triage pays off on CPU only if the LLM is slower still; M6 measures that trade.
+- The multilingual tag is 2–2.5× faster than `laya` on CPU, more than its size explains. Whether it classifies English books as well is an M6 question.
+- `input_tokens` in the response is the sum over the questions.
+
+**Zero-shot triage on the fixture** (2026-11-01, same machine). The 19 chunks of the `classics` fixture, labeled by hand, plus its 3 game scores without comments, labeled `game_score`. Every model got the triage questions above, with `previous` set to the last 60 words of the chunk before, and `true`/`false` descriptions for `discusses_previous`. This is a first look, not the M6 evaluation: 22 passages, one wording of the questions, labels by one person.
+
+| Model | Runtime | `kind` correct | What it answers | `discusses_previous` at 0.5 | Warm median per request |
+|---|---|---|---|---|---|
+| `laya` | Ollama | 4/22 | `game_score` for 18 of 22 | 12/21 | 12.4 s |
+| `laya:322m-multilingual-bf16` | Ollama | 5/22 | mostly `game_score`, some `other` | 10/21 | 5.6 s |
+| [`bekko-system-one-v0-400m`](https://huggingface.co/hotchpotch/bekko-system-one-v0-400m) | Python, PyTorch 2.10 CPU, FP32 | 11/22 | `annotation` for 20 of 22 | 11/21 | 13.9 s |
+
+- All three give nearly the same `kind` whatever the passage. Bekko's higher count only reflects that half the passages are annotations.
+- `discusses_previous` agrees with the labels about as often as a constant answer would. `instructive` does not separate the passages either: Bekko rates the preface and game introductions above the annotations.
+- Bekko does not batch any faster on CPU (22 requests in one call: 15 s each) and takes about 4 GB of RAM. It has no license yet, and it needs Python and PyTorch, which D3 avoids, so it would need a server of its own speaking `/v1/systemone`.
+- Its model card reports far better results than Laya on its author's benchmark (S1MB task average 50.6 against 13.4), but these passages do not show it.
+
+None of the three could skip a chunk safely on this evidence. M6 decides with labeled data and tuned thresholds.
+
+**Not measured yet** (needs the 8 GB GPU machine): Laya latency on GPU, and whether `qwen3.5:9b` runs 100% on the GPU at `num_ctx` 8192 (`chessinfo doctor --load` reports it).
 
 ## Evaluation
 

@@ -40,7 +40,7 @@ docker compose up -d postgres            # PostgreSQL on localhost:5433
 cd backend && go run . --version         # CLI
 cd backend && go run . migrate           # apply database migrations
 cd backend && go run . index <file> --dry-run   # show how a book is extracted and chunked
-cd backend && go test ./...              # backend tests; set CHESSINFO_TEST_DATABASE_URL to include DB tests
+cd backend && go test ./...              # backend tests; set CHESSINFO_TEST_DATABASE_URL to include DB tests, CHESSINFO_TEST_OLLAMA_URL (and optionally CHESSINFO_TEST_LLM_MODEL, CHESSINFO_TEST_SYSTEMONE_MODEL) to include live Ollama tests
 cd frontend && bun install && bun dev    # http://localhost:3000
 ```
 
