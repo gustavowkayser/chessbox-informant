@@ -24,7 +24,7 @@ The guiding rule: **models classify and link, deterministic code handles chess.*
 
 ## 2. Chunk & tokenize
 
-**Chunking.** Split the text into paragraph-sized chunks that never cross a chapter boundary, and keep the chapter and page with each chunk.
+**Chunking.** Split the text into paragraph-sized chunks that never cross a chapter boundary, and keep the chapter and page with each chunk. Blocks under 200 characters (a move set apart on its own line, a caption) and headings are merged with the blocks that follow them, until the group reaches 200 characters. A heading equal to the chapter title is dropped. A chunk longer than 6,000 characters (about 1,500 tokens) is split between sentences.
 
 **Notation convention.** Detect it once per book, from these candidates:
 
