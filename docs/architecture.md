@@ -25,7 +25,7 @@ All models run locally, and no book content is ever sent over the network.
 | Command | Purpose |
 |---|---|
 | `chessinfo index <file>` | Index a book. Resumable; re-indexing an unchanged file does nothing. |
-| `chessinfo books list` / `show <id>` / `remove <id>` | Manage indexed books and inspect failures. |
+| `chessinfo books list` / `show <book>` / `remove <book>` | Manage indexed books and inspect failures. `<book>` is a book ID or SHA-256, or a unique prefix of either; `remove` asks for confirmation unless `--yes` is given. |
 | `chessinfo migrate` | Apply database migrations. |
 | `chessinfo doctor` | Check Postgres, Ollama (version, pulled models, `/v1/systemone`) and VRAM. |
 | `chessinfo eval <fixture>` | Measure indexing accuracy against a fixture's ground truth. |
