@@ -4,19 +4,17 @@ Each milestone has a goal, a checklist, and a **done when** test. Items are plan
 
 ```mermaid
 flowchart LR
-    M0 --> M1 --> M2 --> M4
-    M0 --> M3 --> M4
-    M0 -. seeded rows .-> M5
-    M4 --> M5
-    M4 --> M6
-    M4 --> M7
-    M4 --> M7_5[M7.5]
-    M5 --> M8
+    M0 --> M1 --> M2 --> M4 --> M5
+    M0 --> M3
+    M0 -. seeded rows .-> M6
+    M5 --> M6
+    M5 --> M7
+    M5 --> M7_5[M7.5]
     M6 --> M8
     M7_5 --> M8
 ```
 
-M5 can start right after M0 by using seeded rows. M7 is not required for the first release.
+The pipeline is deterministic ([D16](architecture.md#technical-decisions)): OCR comes first (M4), then the indexing pipeline (M5). M3 built the model clients, which the pipeline no longer uses; they stay for a possible fallback. M6 can start right after M0 by using seeded rows. M7 is not required for the first release.
 
 ## Current state
 
@@ -72,33 +70,50 @@ Goal: chessinfo can talk to both local models and verify the setup.
 
 - [x] `llm.Provider` with an Ollama implementation: structured output, `num_ctx`, `keep_alive`, and a check that the model is pulled
 - [x] `systemone` client for Ollama's `POST /v1/systemone`, with `keep_alive` to unload Laya after triage
-- [x] `chessinfo doctor`
-- [ ] Spike, with results recorded in [indexing.md](indexing.md#measurements), Laya on CPU done and the GPU measurements pending:
-  - confirm `ollama pull laya` on Ollama 0.40+, that `/v1/systemone` is wire-compatible with the client, and whether `laya-multilingual` is in the Ollama library
-  - measure Laya latency on CPU and on GPU
-  - confirm `qwen3.5:9b` fits in 8 GB at `num_ctx` 8192; if it does not, switch the default to `qwen3.5:4b`
+- [x] `chessinfo doctor`; the model checks run with `--models`
+- [x] Spike on CPU, with results recorded in [indexing.md](indexing.md#measurements): `ollama pull laya` on Ollama 0.40+, the `/v1/systemone` wire format, the multilingual tag, Laya latency on CPU, and a zero-shot triage comparison with Bekko System One
 
-**Done when:** `chessinfo doctor` passes on an 8 GB GPU machine and the measurements are recorded.
+**Outcome:** the clients work against Ollama 0.40.13, but the measurements showed that zero-shot triage is neither reliable nor fast enough, and the pipeline dropped the models ([D16](architecture.md#technical-decisions)). The GPU measurements moved to the backlog, with the LLM fallback that would need them.
 
-## M4: Indexing pipeline MVP
+## M4: OCR
 
-Goal: a whole book goes in, and position-linked quotes come out.
+Goal: every PDF, scanned or not, yields text that the notation engine reads well, using our own OCR by default ([D17](architecture.md#technical-decisions)).
 
-- [ ] Stage runner with per-chunk state, resume and progress output
-- [ ] Triage stage and routing (conservative τ)
-- [ ] Parse stage: prompt, schema, output validation
-- [ ] Replay and repair loop
-- [ ] Link and store: quotes with a main variation and analysis lines, plus `exact`, `main` and `analysis` position links
-- [ ] Flags: `--model`, `--no-triage`, `--notation`, `--title`, `--author`, `--language`
-- [ ] `chessinfo eval <fixture>`
+- [ ] Spike, with results recorded in [indexing.md](indexing.md): compare stock OCR engines with CTC recognizers (such as Tesseract's LSTM engine and PaddleOCR) on scanned pages of public-domain chess books and on the private books. Measure the share of numbered moves that replay against the PDF's own text layer, pages per minute on CPU (and on GPU when available), and memory. Pick the engine
+- [ ] Page rendering with Poppler `pdftoppm`, in parallel
+- [ ] `ocr` package: the engine behind an interface, returning words with boxes, which feed the existing PDF layout code (headers and footers, columns, paragraphs, hyphenation)
+- [ ] Per page, keep the reading that replays more numbered moves: our OCR or the text layer. PDFs without a text layer are accepted
+- [ ] On by default for PDFs; `--no-ocr` keeps the text layer only. ePUBs are not affected
+- [ ] `chessinfo doctor` checks the OCR engine and its model
+- [ ] Synthetic training pages: `make fixtures` renders public-domain games with project-authored commentary in chess fonts, figurines included, with scan-like noise, so every page has exact ground truth
+- [ ] Fine-tune the recognizer on the synthetic pages, and measure it against the stock model: character error rate on held-out synthetic pages, and the share of numbered moves that replay on real scans
 
 **Done when:**
 
-- The fixture indexes end to end on an 8 GB GPU.
+- The fixture PDF, rendered as images without a text layer, gives the same chunks and replays the same moves as the ePUB.
+- On each private PDF, the share of numbered moves that replay is at least that of its text layer.
+- The time per page meets the target set by the spike, on CPU.
+
+## M5: Deterministic indexing pipeline
+
+Goal: a whole book goes in, and position-linked quotes come out, without any model.
+
+- [ ] Stage runner with per-chunk state, resume and progress output
+- [ ] Tokenize chunks in parallel; parse and replay in order within each game, across chunks, with the game score parser
+- [ ] Moves told apart from squares named in prose, by replay and by context (`on d5`, `the d5 square`)
+- [ ] Chunks the parser cannot place are stored without links, with the reason, and listed in `chessinfo books show`
+- [ ] Link and store: each chunk is a quote, linked to the positions its moves reach. The link types, data model and API changes are designed here and recorded in [architecture.md](architecture.md)
+- [ ] Flags: `--notation`, `--title`, `--author`, `--language`, `--no-ocr`
+- [ ] `chessinfo eval <fixture>`
+- [ ] Measure the gap: the share of chunks with moves that the parser could not place, per book, reported by `make test-books`. It decides whether the LLM fallback in the backlog is needed
+
+**Done when:**
+
+- The fixture indexes end to end without any model.
 - `chessinfo eval` reports position-link precision ≥ 0.9 and recall ≥ 0.7. These are initial targets, to be revisited after the first measurement.
 - Killing `chessinfo index` and running it again resumes without creating duplicates.
 
-## M5: Quotes in the web app
+## M6: Quotes in the web app
 
 Goal: the panel shows what the books say about the position on the board.
 
@@ -106,7 +121,7 @@ Goal: the panel shows what the books say about the position on the board.
 - [ ] Domain: `Quote` and `PositionKey`; position key tested against the shared fixture (`bun test`)
 - [ ] Application: `FindQuotesByPosition` use case and `QuoteRepository` port, tested with an in-memory repository
 - [ ] Infrastructure: `DATABASE_URL`, a read-only database role, a postgres.js `QuoteRepository`, `server-only` guards
-- [ ] `/api/v1/quotes` as a thin inbound adapter following the [API contract](architecture.md#api)
+- [ ] `/api/v1/quotes` as a thin inbound adapter following the [API contract](architecture.md#api), as revised in M5
 - [ ] Panel: quote content with book, chapter and page; the main variation and analysis lines with move numbers and annotations, highlighting the current ply on `main` and `analysis` matches; loading, empty and error states
 - [ ] Paging with `nextCursor`
 - [ ] Clicking a move in the notation list jumps to that position
@@ -120,28 +135,14 @@ Goal: the panel shows what the books say about the position on the board.
 - A transposition finds the same quotes.
 - The API answers in under 100 ms (p95) locally on an indexed book.
 
-## M6: Triage quality (Laya)
-
-Goal: find out from data how much Laya saves, and use it only where it is reliable.
-
-- [ ] Label the fixture chunks (`kind`, `discusses_previous`, `instructive`). Start from LLM-generated labels and review them by hand.
-- [ ] Measure zero-shot Laya against the labels and fit a threshold τ per question
-- [ ] Decide from the results which skips are safe
-- [ ] Optional: fine-tune Laya on LLM-teacher labels (distillation) and load the checkpoint from config
-- [ ] Tune `relevancy` (derived from `instructive`) so the most useful quotes come first
-
-**Done when:** triage cuts LLM calls by at least 30% while losing at most 2% of the expected quotes in `chessinfo eval`. If Laya cannot reach that, triage stays opt-in and the result is documented.
-
 ## M7: Harder sources
 
 Goal: handle the content that plain text extraction misses.
 
 - [ ] Chess-font diagrams (grids of text glyphs) → FEN
-- [ ] Image diagrams → FEN with the vision model, validated for legality and piece counts, and stored as `diagram` quotes with an `exact` link
+- [ ] Image diagrams → FEN with a local board recognizer (not an LLM), validated for legality and piece counts, and stored as `diagram` quotes with an `exact` link
 - [ ] Descriptive notation (`P-K4`), resolved against the legal moves
 - [ ] More conventions: Italian, Dutch, Russian
-- [ ] Scanned PDFs via OCR (stretch goal)
-- [ ] LLM correction of OCR errors in quote text, which never changes the moves
 - [ ] Chapters from running headers when a PDF has no outline
 - [ ] Drop diagram noise (coordinate letters, glyph grids) before chunking
 
@@ -165,7 +166,7 @@ Goal: a new user gets from zero to quotes on the board by following only the REA
 
 - [ ] Cross-platform binaries (goreleaser)
 - [ ] Full-stack docker compose (Postgres + web app)
-- [ ] User guide: install, first index, troubleshooting VRAM
+- [ ] User guide: install, first index, troubleshooting OCR
 - [ ] CONTRIBUTING, CHANGELOG, versioning
 
 ## Backlog (unscheduled)
@@ -173,5 +174,7 @@ Goal: a new user gets from zero to quotes on the board by following only the REA
 - Export an indexed book as annotated PGN
 - Semantic search over quotes (pgvector + a small embedding model)
 - Theme tags (opening, strategy, tactics, endgame) with filters in the UI
-- An OpenAI-compatible provider (LM Studio, llama.cpp server)
+- Quote boundaries: narrow a chunk quote down to the sentences about each position, and link prose without moves to the position it discusses. The one place a decision model may help; see the [triage measurements](indexing.md#measurements)
+- LLM fallback for chunks the parser cannot place, planned only once M5 measures the gap. `internal/llm` and `internal/ollama` from M3 are its starting point; an OpenAI-compatible provider (LM Studio, llama.cpp server) could follow
+- GPU measurements from the M3 spike, needed only with the two items above: Laya latency on GPU, and whether `qwen3.5:9b` runs 100% on an 8 GB GPU at `num_ctx` 8192 (`chessinfo doctor --load`)
 - Opening names (ECO) on positions

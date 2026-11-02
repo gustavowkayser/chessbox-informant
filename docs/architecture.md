@@ -4,19 +4,19 @@
 
 ChessBox Informant has two halves that share one PostgreSQL database:
 
-- **`chessinfo`** (Go CLI, `backend/`) **writes**. It reads a PDF or ePUB, runs the [indexing pipeline](indexing.md) with local models, and stores quotes keyed by chess position.
+- **`chessinfo`** (Go CLI, `backend/`) **writes**. It reads a PDF or ePUB, runs the deterministic [indexing pipeline](indexing.md) (our own OCR, the notation tokenizer, the game score parser and replay), and stores quotes keyed by chess position.
 - **The web app** (Next.js, `frontend/`) **reads**. It shows an interactive board, and after every position change it requests the quotes linked to that position from `/api/v1/quotes`.
 
 ```mermaid
 flowchart LR
     book[PDF / ePUB] --> cli[chessinfo index]
-    cli <--> ollama[Ollama<br/>generative LLM + Laya]
+    cli <--> ocr[Local OCR model]
     cli --> db[(PostgreSQL)]
     db --> api[Next.js route<br/>/api/v1/quotes]
     api --> ui[Board + quotes panel]
 ```
 
-All models run locally, and no book content is ever sent over the network.
+Everything runs locally, and no book content is ever sent over the network. No LLM or decision model takes part in indexing ([D16](#technical-decisions)).
 
 ## Components
 
@@ -38,12 +38,13 @@ backend/
   internal/
     config/            flags, env vars, config file
     book/              ePUB and PDF extractors, chunker
+    ocr/               page rendering and the OCR engine (M4)
     notation/          move tokenizer, notation conventions (figurine, localized letters)
     chess/             replay, variation tree, position keys
     gamescore/         deterministic game score parser: places moves in the tree, lookahead
     ollama/            shared Ollama HTTP client: requests, API errors, model checks
-    llm/               generative provider interface + Ollama implementation
-    systemone/         System One client (Ollama `/v1/systemone`)
+    llm/               generative provider interface + Ollama implementation (unused; kept for a fallback)
+    systemone/         System One client, Ollama `/v1/systemone` (unused; kept for a fallback)
     pipeline/          stages, per-chunk state, resume
     store/             PostgreSQL repositories
   database/migrations/
@@ -178,12 +179,13 @@ create table quote_positions (
 create index quote_positions_position_key on quote_positions (position_key);
 ```
 
-- `books.models` records which models and versions indexed the book, so results stay reproducible.
-- `books.status` is `extracted` once `chessinfo index` has stored the book's chunks. The pipeline statuses are added in M4.
+- The quote structure below (a quoted position with a main variation and analysis lines) predates chunk quotes ([D18](#technical-decisions)). M5 revises it, with `chunks.stage`, the link rows and the [API](#api).
+- `books.models` records which engines and versions indexed the book, such as the OCR engine and its model, so results stay reproducible.
+- `books.status` is `extracted` once `chessinfo index` has stored the book's chunks. The pipeline statuses are added in M5.
 - `books.title` falls back to the file name when the book has no title metadata.
-- `chunks.stage` drives resume. Its values are `extracted`, `triaged`, `skipped`, `parsed`, `linked` and `failed`.
+- `chunks.stage` drives resume. Its values are `extracted`, `triaged`, `skipped`, `parsed`, `linked` and `failed`; M5 replaces them with the deterministic stages, and `chunks.triage` stays unused.
 - `quotes.main_variation` and `quotes.analysis` store the lines exactly as the API returns them in `mainVariation` and `moveAnalysis`.
-- `quotes.relevancy` is Laya's `instructive` score divided by 3, giving 0, 0.33, 0.67 or 1. It is 0 when triage is off.
+- `quotes.relevancy` ranks quotes from 0 to 1. It was to come from Laya's `instructive` score; without triage it is 0 until a ranking is designed.
 - `quote_positions` has these rows for each quote:
   - one `exact` row for the quoted position
   - one `main` row for each position reached on the main variation
@@ -270,32 +272,35 @@ create index quote_positions_position_key on quote_positions (position_key);
 |---|---|---|---|
 | `CHESSINFO_DATABASE_URL` | `--database-url` | `postgres://postgres:postgres@localhost:5433/postgres` | chessinfo |
 | `DATABASE_URL` | | same as above | web app (`frontend/.env.local`) |
-| `CHESSINFO_OLLAMA_URL` | `--ollama-url` | `http://localhost:11434` | chessinfo |
-| `CHESSINFO_LLM_MODEL` | `--model` | `qwen3.5:9b` | chessinfo |
-| `CHESSINFO_LLM_NUM_CTX` | `--num-ctx` | `8192` | chessinfo |
-| `CHESSINFO_SYSTEMONE_MODEL` | `--systemone-model` | `laya` | chessinfo |
+| `CHESSINFO_OLLAMA_URL` | `--ollama-url` | `http://localhost:11434` | `chessinfo doctor --models` |
+| `CHESSINFO_LLM_MODEL` | `--model` | `qwen3.5:9b` | `chessinfo doctor --models` |
+| `CHESSINFO_LLM_NUM_CTX` | `--num-ctx` | `8192` | `chessinfo doctor --models` |
+| `CHESSINFO_SYSTEMONE_MODEL` | `--systemone-model` | `laya` | `chessinfo doctor --models` |
 | `CHESSINFO_POPPLER_DIR` | `--poppler-dir` | empty (use `PATH`) | chessinfo |
 
 Flags override environment variables, which override the defaults (`internal/config`). All flags are global, on the root command.
 
 ## Technical decisions
 
-All decisions below are **approved**. D5 is approved for now and will be revisited in M7.
+All decisions below are **approved**, except D2–D4, which are **deferred**: the pipeline uses no models (D16), and they apply only if the LLM fallback in the backlog is built. D5 is approved for now and will be revisited in M7.
 
 | # | Topic | Decision | Reason / alternative |
 |---|---|---|---|
 | D1 | Serving quotes to the UI | The Next.js route handler reads PostgreSQL directly, using a read-only role. | The route stub already exists, and there is no second server to run. Alternative: a `chessinfo serve` HTTP API. |
-| D2 | Generative provider | Ollama `/api/chat` with a JSON-schema `format`, behind an `llm.Provider` interface. | Easy local setup on every OS, with structured output. An OpenAI-compatible provider (LM Studio, llama.cpp) can be added later. |
-| D3 | System One provider | Laya served by Ollama (`ollama pull laya`, `POST /v1/systemone`, Ollama 0.40+), at `CHESSINFO_OLLAMA_URL`. | One runtime for both models, and no Python dependency. Laya's own Python server (`laya-serve`) speaks the same wire format, but is no longer needed. |
-| D4 | Default LLM | `qwen3.5:9b`, with `qwen3.5:4b` as the low-memory fallback. | See the [VRAM budget](indexing.md#models-and-the-8-gb-vram-budget). |
-| D5 | PDF text | Poppler `pdftotext -bbox-layout` for the text with line positions, and `pdftohtml -xml` for the outline, behind a `book.Extractor` interface. | Robust, and needs no cgo on Windows. `-bbox-layout` keeps Poppler's reading order, which separates the columns of two-column books; `-layout` prints them side by side on each line. MuPDF (`go-fitz`) is the alternative if image diagrams (M7) need it. |
+| D2 | Generative provider (deferred) | Ollama `/api/chat` with a JSON-schema `format`, behind an `llm.Provider` interface. | Easy local setup on every OS, with structured output. An OpenAI-compatible provider (LM Studio, llama.cpp) can be added later. |
+| D3 | System One provider (deferred) | Laya served by Ollama (`ollama pull laya`, `POST /v1/systemone`, Ollama 0.40+), at `CHESSINFO_OLLAMA_URL`. | One runtime for both models, and no Python dependency. Laya's own Python server (`laya-serve`) speaks the same wire format, but is no longer needed. |
+| D4 | Default LLM (deferred) | `qwen3.5:9b`, with `qwen3.5:4b` as the low-memory fallback. | Fits an 8 GB GPU at `num_ctx` 8192, unconfirmed (see the [measurements](indexing.md#measurements)). |
+| D5 | PDF text | Poppler `pdftotext -bbox-layout` for the text with line positions, `pdftohtml -xml` for the outline, and `pdftoppm` to render pages for OCR, behind a `book.Extractor` interface. | Robust, and needs no cgo on Windows. `-bbox-layout` keeps Poppler's reading order, which separates the columns of two-column books; `-layout` prints them side by side on each line. MuPDF (`go-fitz`) is the alternative if image diagrams (M7) need it. |
 | D6 | ePUB text | Pure Go: `archive/zip` + `golang.org/x/net/html`. | No external dependency. |
 | D7 | Chess rules | `github.com/corentings/chess/v2` | A maintained fork of `notnil/chess`. |
 | D8 | Database access | `pgx/v5` in Go; `postgres` (postgres.js) in the web app. | Both are the standard choices. |
 | D9 | Migrations | `goose` with SQL files in `backend/database/migrations`. | Plain SQL, and can be embedded in the binary. |
-| D10 | Move extraction | A deterministic tokenizer finds move candidates. The LLM only references token IDs. | The LLM cannot hallucinate moves, and the replay validates everything. |
+| D10 | Move extraction | A deterministic tokenizer finds move candidates, the game score parser places them in the move tree, and replay validates every move. | No model can invent or misplace a move. |
 | D11 | License | MIT, in `LICENSE` at the repository root. | |
 | D12 | Web app API structure | Hexagonal architecture: `domain`, `application` (use cases and ports), `infrastructure` (adapters). See [Web app](#web-app). | Keeps the query logic testable without Next.js or a database. |
 | D13 | FEN input | Not validated. The key is built from the FEN as given. | A bad FEN matches no quotes, so validation adds nothing. |
 | D14 | Position key | Placement, side to move and castling only. | Keeping en passant would require move generation in both languages. See [Position key](#position-key). |
 | D15 | Quotes API contract | Cursor paging; `exact`, `main` and `analysis` matches with `ply` (`line` only on `analysis`); a separate `mainVariation` plus `moveAnalysis` sidelines, each with `start` and a per-move `annotation`. See [API](#api). | The main line is kept apart from sidelines. |
+| D16 | Indexing without models | The pipeline is deterministic: text layer or OCR, tokenizer, game score parser, replay. No LLM and no decision model. Chunks the parser cannot place are stored without links. | Zero-shot triage was neither reliable nor fast enough on CPU ([measurements](indexing.md#measurements)), and a deterministic pipeline is predictable, fast and testable. An LLM fallback is planned only if M5 measures a real gap. |
+| D17 | OCR | Our own OCR reads every PDF by default, with an OCR-specific local model (a CTC recognizer, never an LLM) chosen by the M4 spike and fine-tuned on synthetic chess pages. Per page, the reading that replays more numbered moves wins over the PDF's text layer. `--no-ocr` keeps the text layer only. | Many PDFs found online carry imprecise OCR text layers. A CTC recognizer cannot write a fluent, plausible move the way a generative model can, and replay picks the better reading. |
+| D18 | Quote granularity | A quote is a whole chunk, linked to the positions its moves reach. | No model is needed to attach comments to moves. Narrowing a quote to the sentences about one position is deferred (backlog). |
