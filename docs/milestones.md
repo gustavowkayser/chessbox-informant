@@ -70,10 +70,10 @@ Goal: turn move text into verified positions without any model, including OCR-sc
 
 Goal: chessinfo can talk to both local models and verify the setup.
 
-- [ ] `llm.Provider` with an Ollama implementation: structured output, `num_ctx`, `keep_alive`, and a check that the model is pulled
-- [ ] `systemone` client for Ollama's `POST /v1/systemone`, with `keep_alive` to unload Laya after triage
-- [ ] `chessinfo doctor`
-- [ ] Spike, with results recorded in [indexing.md](indexing.md#models-and-the-8-gb-vram-budget):
+- [x] `llm.Provider` with an Ollama implementation: structured output, `num_ctx`, `keep_alive`, and a check that the model is pulled
+- [x] `systemone` client for Ollama's `POST /v1/systemone`, with `keep_alive` to unload Laya after triage
+- [x] `chessinfo doctor`
+- [ ] Spike, with results recorded in [indexing.md](indexing.md#measurements), Laya on CPU done and the GPU measurements pending:
   - confirm `ollama pull laya` on Ollama 0.40+, that `/v1/systemone` is wire-compatible with the client, and whether `laya-multilingual` is in the Ollama library
   - measure Laya latency on CPU and on GPU
   - confirm `qwen3.5:9b` fits in 8 GB at `num_ctx` 8192; if it does not, switch the default to `qwen3.5:4b`
