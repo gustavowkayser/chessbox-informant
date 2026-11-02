@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-ChessBox Informant is an open-source tool that indexes chess positions to quotes from chess books the user owns (PDF/ePUB). The `chessinfo` CLI indexes a book with local models and stores quotes keyed by position in PostgreSQL; the web app shows the quotes for the position on the board.
+ChessBox Informant is an open-source tool that indexes chess positions to quotes from chess books the user owns (PDF/ePUB). The `chessinfo` CLI indexes a book deterministically (local OCR, notation tokenizer, game score parser, replay) and stores quotes keyed by position in PostgreSQL; the web app shows the quotes for the position on the board.
 
 Read before working: [README.md](README.md), [docs/architecture.md](docs/architecture.md), [docs/indexing.md](docs/indexing.md), [docs/milestones.md](docs/milestones.md).
 
@@ -45,6 +45,6 @@ The Makefile wraps these: `make db-up migrate test`, `make build` (`backend/bin/
 - **Frontend:** this Next.js version has breaking changes compared to your training data. Read @frontend/AGENTS.md and the guides in `frontend/node_modules/next/dist/docs/` before writing frontend code. Use Bun, not npm. Biome formats with 4-space indentation.
 - **Frontend API (hexagonal):** `domain` has no framework or I/O imports; `application` holds use cases and ports and depends only on `domain`; `infrastructure` implements the ports; route handlers in `src/app/api` are thin inbound adapters. Inner layers never import outer ones. FENs are not validated. Layout: docs/architecture.md#web-app.
 - **Position keys:** never compare raw FENs. Always use the position-key normalization defined in docs/architecture.md. The Go and TypeScript implementations must pass the same shared fixtures.
-- **Models:** local only, no cloud model APIs. Default models must fit an 8 GB VRAM GPU. The generative LLM must never invent chess moves: it references move tokens found by the tokenizer, and every move is checked by replaying it with a chess rules library.
+- **Models:** the indexing pipeline uses no LLM and no decision model; the only model is the OCR recognizer (D16, D17 in docs/architecture.md). Models are local only, with no cloud model APIs, and must fit an 8 GB VRAM GPU. No model may invent chess moves: every move comes from the tokenizer and is checked by replaying it with a chess rules library.
 - **Book content:** never commit copyrighted book text. Fixtures in `backend/tests/assets/` must be public-domain or written for this project.
 - **Docs:** when a decision in docs/architecture.md changes, update it there. Tick milestone items in docs/milestones.md when they are done.
