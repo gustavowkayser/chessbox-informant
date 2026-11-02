@@ -105,7 +105,7 @@ func run(t *testing.T, f *fakeOllama, load bool, configure ...func(*config.Confi
 
 	results := map[string]doctor.Result{}
 	var order []string
-	doctor.New(cfg, load).Run(context.Background(), func(r doctor.Result) {
+	doctor.New(cfg, doctor.Options{Models: true, Load: load}).Run(context.Background(), func(r doctor.Result) {
 		results[r.Check] = r
 		order = append(order, r.Check)
 	})
@@ -239,6 +239,37 @@ func TestVRAM(t *testing.T) {
 		results := run(t, f, true, func(c *config.Config) { c.LLMModel = "laya" })
 		expect(t, results, doctor.CheckVRAM, doctor.OK, "laya at num_ctx")
 	})
+}
+
+func TestDefaultChecksOnlyTheDatabase(t *testing.T) {
+	f := healthyOllama()
+	srv := httptest.NewServer(f)
+	t.Cleanup(srv.Close)
+	cfg := config.Default()
+	cfg.DatabaseURL = unreachableDatabase
+	cfg.OllamaURL = srv.URL
+
+	var checks []string
+	doctor.New(cfg, doctor.Options{}).Run(context.Background(), func(r doctor.Result) {
+		checks = append(checks, r.Check)
+	})
+	if strings.Join(checks, ",") != doctor.CheckDatabase {
+		t.Errorf("checks = %v, want only %s", checks, doctor.CheckDatabase)
+	}
+}
+
+func TestLoadImpliesModels(t *testing.T) {
+	cfg := config.Default()
+	cfg.DatabaseURL = unreachableDatabase
+	cfg.OllamaURL = "http://127.0.0.1:1"
+
+	var checks []string
+	doctor.New(cfg, doctor.Options{Load: true}).Run(context.Background(), func(r doctor.Result) {
+		checks = append(checks, r.Check)
+	})
+	if len(checks) != 5 {
+		t.Errorf("checks = %v, want all five", checks)
+	}
 }
 
 func withDatabase(url string) func(*config.Config) {

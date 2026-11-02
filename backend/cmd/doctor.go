@@ -14,17 +14,19 @@ import (
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
-	Short: "Check the database, Ollama and the models",
-	Long: "Checks that PostgreSQL is migrated, that Ollama is " + doctor.MinOllamaVersion + " or newer,\n" +
-		"that the LLM is pulled and that the System One model answers.\n" +
-		"With --load, it also loads the LLM to see how much of it fits in VRAM.",
+	Short: "Check that chessinfo is ready to index books",
+	Long: "Checks that PostgreSQL is reachable and migrated.\n" +
+		"With --models, it also checks that Ollama is " + doctor.MinOllamaVersion + " or newer, that the LLM\n" +
+		"is pulled and that the System One model answers; with --load, it loads\n" +
+		"the LLM to see how much of it fits in VRAM.",
 	Args: cobra.NoArgs,
 	RunE: runDoctor,
 }
 
 func init() {
 	rootCmd.AddCommand(doctorCmd)
-	doctorCmd.Flags().Bool("load", false, "Load the LLM to measure how much of it fits in VRAM")
+	doctorCmd.Flags().Bool("models", false, "Also check Ollama and the models")
+	doctorCmd.Flags().Bool("load", false, "Load the LLM to measure how much of it fits in VRAM (implies --models)")
 }
 
 func runDoctor(cmd *cobra.Command, args []string) error {
@@ -32,11 +34,14 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	load, err := cmd.Flags().GetBool("load")
-	if err != nil {
+	var opts doctor.Options
+	if opts.Models, err = cmd.Flags().GetBool("models"); err != nil {
 		return err
 	}
-	return runChecks(cmd.Context(), doctor.New(cfg, load), cmd.OutOrStdout())
+	if opts.Load, err = cmd.Flags().GetBool("load"); err != nil {
+		return err
+	}
+	return runChecks(cmd.Context(), doctor.New(cfg, opts), cmd.OutOrStdout())
 }
 
 func runChecks(ctx context.Context, d doctor.Doctor, out io.Writer) error {

@@ -61,12 +61,19 @@ type Doctor struct {
 	llmModel       string
 	numCtx         int
 	systemOneModel string
+	models         bool
 	load           bool
 }
 
-// New returns a doctor for cfg. With load, the vram check loads the LLM to see
-// how much of it fits in VRAM.
-func New(cfg config.Config, load bool) Doctor {
+type Options struct {
+	// Models adds the checks of Ollama and its models, which the pipeline does
+	// not use yet.
+	Models bool
+	// Load loads the LLM to see how much of it fits in VRAM. It implies Models.
+	Load bool
+}
+
+func New(cfg config.Config, opts Options) Doctor {
 	client := ollama.New(cfg.OllamaURL)
 	return Doctor{
 		databaseURL:    cfg.DatabaseURL,
@@ -76,7 +83,8 @@ func New(cfg config.Config, load bool) Doctor {
 		llmModel:       cfg.LLMModel,
 		numCtx:         cfg.LLMNumCtx,
 		systemOneModel: cfg.SystemOneModel,
-		load:           load,
+		models:         opts.Models || opts.Load,
+		load:           opts.Load,
 	}
 }
 
@@ -84,6 +92,9 @@ func New(cfg config.Config, load bool) Doctor {
 // checks can take a while.
 func (d Doctor) Run(ctx context.Context, report func(Result)) {
 	report(d.checkDatabase(ctx))
+	if !d.models {
+		return
+	}
 
 	res, reachable := d.checkOllama(ctx)
 	report(res)
